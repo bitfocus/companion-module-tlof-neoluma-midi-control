@@ -1,28 +1,31 @@
 {
 	"$schema": "../node_modules/@companion-module/base/assets/manifest.schema.json",
 	"type": "connection",
-	"id": "your-module-name",
-	"name": "your-module-name",
-	"shortname": "module-shortname",
-	"description": "A short one line description of your module",
+	"id": "tlof-neoluma-midi-control",
+	"name": "tlof-neoluma-midi-control",
+	"shortname": "neoluma-control",
+	"description": "Control the NeoLuma VRChat world via MIDI.",
 	"version": "0.0.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
-	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+	"repository": "git+https://github.com/bitfocus/companion-module-tlof-neoluma-midi-control.git",
+	"bugs": "https://github.com/bitfocus/companion-module-tlof-neoluma-midi-control/issues",
 	"maintainers": [
 		{
-			"name": "Your name",
-			"email": "Your email"
+			"name": "Miniontoby",
+			"email": "47940064+Miniontoby@users.noreply.github.com"
 		}
 	],
 	"runtime": {
 		"type": "node22",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
-		"entrypoint": "../dist/main.js"
+		"entrypoint": "../dist/main.js",
+		"permissions": {
+			"native-addons": true
+		}
 	},
 	"legacyIds": [],
-	"manufacturer": "Your company",
-	"products": ["Your product"],
-	"keywords": []
+	"manufacturer": "TLOF",
+	"products": ["NeoLuma Control"],
+	"keywords": ["vrchat"]
 }
