@@ -1,7 +1,9 @@
-# VRChat MultiCamMixer's MIDI protocol companion module
+# TLOF's VRChat NeoLuma MIDI protocol for controlling AudioLink lights - companion module
 
-A module for Bitfocus Companion (for StreamDeck control) to use the VRChat MultiCamMixer's MIDI protocol.
+A module for Bitfocus Companion (for StreamDeck control) to use the TLOF's VRChat NeoLuma MIDI protocol for controlling their AudioLink lights.
 
+World Link: https://vrchat.com/home/world/wrld_d3c63056-8295-432a-bb9d-a0f6319444b6/info
+World Wiki: https://github.com/The-Land-of-Future/TLOF-Club/wiki
 
 ## Requirements
 
@@ -15,7 +17,6 @@ Then there should be an input field for startup/launch options. Add `--midi=loop
 
 Then (re)start VRChat.
 
-
 ## Usage
 
 ### Companion
@@ -27,7 +28,6 @@ Then (re)start VRChat.
 5. Make sure Enable Developer Modules is switched on. You can now close the window
 6. Click on "Launch GUI" to open the Admin interface. In the connections list you should find the connection provided by the developer module.
 
-
 ### CompanionPI
 
 1. Find the developers module folder on your installation. This is often `/opt/companion-module-dev/`.
@@ -35,4 +35,3 @@ Then (re)start VRChat.
 3. Run Companion.
 4. Open the Admin interface in your Browser. In the connections list you should find the connection provided by the developer module.
 5. If you don't see the developers module, please check the log and switch on debug, maybe the module has crashed.
-
