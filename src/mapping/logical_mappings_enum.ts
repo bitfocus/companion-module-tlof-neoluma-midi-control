@@ -1,9 +1,3 @@
-/*
-^\|(?<Number>[^\|\n]+)\|(?<Section>[^\|\n]+)\|(?<Side>[^\|\n]+)\|$
-
-\t${Section}_${Side} = ${Number},\n
-*/
-
 export enum LogicalMappingsEnum {
 	Floor_Left = 0,
 	Floor_Right = 1,

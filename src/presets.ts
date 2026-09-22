@@ -32,9 +32,21 @@ export function UpdatePresets(self: ModuleInstance): void {
 					presets: [],
 				},
 				{
+					id: 'toggles-logical',
+					type: 'simple',
+					name: 'Logical Toggles',
+					presets: [],
+				},
+				{
 					id: 'buttons',
 					type: 'simple',
 					name: 'Buttons',
+					presets: [],
+				},
+				{
+					id: 'buttons-logical',
+					type: 'simple',
+					name: 'Logical Buttons',
 					presets: [],
 				},
 				{
@@ -44,9 +56,21 @@ export function UpdatePresets(self: ModuleInstance): void {
 					presets: [],
 				},
 				{
+					id: 'enums-logical',
+					type: 'simple',
+					name: 'Logical Enums',
+					presets: [],
+				},
+				{
 					id: 'sliders',
 					type: 'simple',
 					name: 'Sliders',
+					presets: [],
+				},
+				{
+					id: 'sliders-logical',
+					type: 'simple',
+					name: 'Logical Sliders',
 					presets: [],
 				},
 			],
@@ -195,7 +219,8 @@ export function UpdatePresets(self: ModuleInstance): void {
 		}
 
 		const def = structure[0].definitions.find(
-			(def) => typeof def !== 'string' && def.id === 'toggles' && def.type === 'simple',
+			(def) =>
+				typeof def !== 'string' && def.id === 'toggles' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -259,7 +284,8 @@ export function UpdatePresets(self: ModuleInstance): void {
 		}
 
 		const def = structure[0].definitions.find(
-			(def) => typeof def !== 'string' && def.id === 'buttons' && def.type === 'simple',
+			(def) =>
+				typeof def !== 'string' && def.id === 'buttons' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -348,7 +374,8 @@ export function UpdatePresets(self: ModuleInstance): void {
 		}
 
 		const def = structure[0].definitions.find(
-			(def) => typeof def !== 'string' && def.id === 'enums' && def.type === 'simple',
+			(def) =>
+				typeof def !== 'string' && def.id === 'enums' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -538,7 +565,8 @@ export function UpdatePresets(self: ModuleInstance): void {
 		}
 
 		const def = structure[0].definitions.find(
-			(def) => typeof def !== 'string' && def.id === 'sliders' && def.type === 'simple',
+			(def) =>
+				typeof def !== 'string' && def.id === 'sliders' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)

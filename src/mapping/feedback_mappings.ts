@@ -1,8 +1,3 @@
-/*
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?<HasSections>[^\|\n]+)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t{\n\t\tnumber: ${Number},\n\t\tname: '$Name',\n\t\thasSections: '$HasSections',\n\t\ttype: '$Type',\n\t\tdata: '$Data',\n\t},\n
-*/
-
 export interface FeedbackMappings {
 	number: number
 	name: string

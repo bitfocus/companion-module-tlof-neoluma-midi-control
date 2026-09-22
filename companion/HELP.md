@@ -2,7 +2,7 @@
 
 A module for Bitfocus Companion (for StreamDeck control) to use the TLOF's VRChat NeoLuma MIDI protocol for controlling their AudioLink lights.
 
-World Link: https://vrchat.com/home/world/wrld_d3c63056-8295-432a-bb9d-a0f6319444b6/info
+World Link: https://vrchat.com/home/world/wrld_d3c63056-8295-432a-bb9d-a0f6319444b6/info  
 World Wiki: https://github.com/The-Land-of-Future/TLOF-Club/wiki
 
 ## Requirements

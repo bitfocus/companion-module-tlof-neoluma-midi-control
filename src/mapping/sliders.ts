@@ -284,7 +284,7 @@ export const sliders: SliderMappingData[] = [
 		enum: 'AudioLink',
 	},
 
-	// LOGICAL
+	// Logical
 	{
 		id: 'General__Spot Width',
 		label: 'General - Spot Width',

@@ -242,7 +242,7 @@ export const toggles: MappingData[] = [
 		enum: 'MidiFeedback',
 	},
 
-	// LOGICAL
+	// Logical
 	{
 		id: 'Activation__Section Enabled',
 		label: 'Activation - Section Enabled',

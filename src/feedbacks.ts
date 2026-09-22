@@ -1,26 +1,6 @@
 import type ModuleInstance from './main.js'
 import LogicalMappingsEnum, { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'
 
-/*
-feedback mappings:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?<HasSections>[^\|\n]+)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t$Name: {\n\t\ttype: 'boolean'\n\t\toptions: {\n\t\t\tvalue: number\n\t\t}\n\t}\n
-
-
-NEW:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|None\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t$Name: {\n\t\ttype: 'boolean'\n\t\toptions: {\n\t\t\tvalue: number\n\t\t}\n\t}\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|Logical\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t$Name: {\n\t\ttype: 'boolean'\n\t\toptions: {\n\t\t\tvalue: number\n\t\t\tlogical: LogicalMappingsEnum\n\t\t}\n\t}\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?:Section|Side|SetColor|Color|AudioLink)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t$Name: {\n\t\ttype: 'boolean'\n\t\toptions: {\n\t\t\tvalue: number\n\t\t\tindex: number\n\t\t}\n\t}\n
-
-*/
-
 export type FeedbacksSchema = {
 	connected: {
 		type: 'boolean'
@@ -334,7 +314,7 @@ export type FeedbacksSchema = {
 		}
 	}
 
-	// Other sections:
+	// Other Mappings:
 	SectionToggles: {
 		type: 'boolean'
 		options: {
@@ -371,28 +351,6 @@ export type FeedbacksSchema = {
 		}
 	}
 }
-
-/*
-feedback mappings:
-
-Replace |Bool with |0-1
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?<HasSections>[^\|\n]+)\|(?<Type>[^\|\n]+)\|(?<Data>(?<Min>\d+)?-?(?<Max>\d+)?[^\|\n]*)
-\t\t$Name: {\n\t\t\tname: '$Name',\n\t\t\tdescription: '$Name',\n\t\t\ttype: 'boolean',\n\t\t\tdefaultStyle: {\n\t\t\t\tcolor: 0xffffff,\n\t\t\t\tbgcolor: 0x00ff00,\n\t\t\t},\n\t\t\toptions: [\n\t\t\t\t{\n\t\t\t\t\ttype: 'number',\n\t\t\t\t\tid: 'value',\n\t\t\t\t\tlabel: 'Value',\n\t\t\t\t\tdefault: 1,\n\t\t\t\t\tmin: $Min,\n\t\t\t\t\tmax: $Max,\n\t\t\t\t},\n\t\t\t],\n\t\t\tcallback: (feedback) => {\n\t\t\t\treturn self.getVariableValue('$Name') === feedback.options.value\n\t\t\t},\n\t\t},\n
-
-
-NEW:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|None\|(?<Type>[^\|\n]+)\|(?<Data>(?<Min>\d+)?-?(?<Max>\d+)?[^\|\n]*)
-\t\t$Name: {\n\t\t\tname: '$Name',\n\t\t\tdescription: '$Name',\n\t\t\ttype: 'boolean',\n\t\t\tdefaultStyle: {\n\t\t\t\tcolor: 0xffffff,\n\t\t\t\tbgcolor: 0x00ff00,\n\t\t\t},\n\t\t\toptions: [\n\t\t\t\t{\n\t\t\t\t\ttype: 'number',\n\t\t\t\t\tid: 'value',\n\t\t\t\t\tlabel: 'Value',\n\t\t\t\t\tdefault: 1,\n\t\t\t\t\tmin: $Min,\n\t\t\t\t\tmax: $Max,\n\t\t\t\t},\n\t\t\t],\n\t\t\tcallback: (feedback) => {\n\t\t\t\treturn self.getVariableValue('$Name') === feedback.options.value\n\t\t\t},\n\t\t},\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|Logical\|(?<Type>[^\|\n]+)\|(?<Data>(?<Min>\d+)?-?(?<Max>\d+)?[^\|\n]*)
-\t\t$Name: {\n\t\t\tname: '$Name',\n\t\t\tdescription: '$Name',\n\t\t\ttype: 'boolean',\n\t\t\tdefaultStyle: {\n\t\t\t\tcolor: 0xffffff,\n\t\t\t\tbgcolor: 0x00ff00,\n\t\t\t},\n\t\t\toptions: [\n\t\t\t\t{\n\t\t\t\t\ttype: 'number',\n\t\t\t\t\tid: 'value',\n\t\t\t\t\tlabel: 'Value',\n\t\t\t\t\tdefault: 1,\n\t\t\t\t\tmin: $Min,\n\t\t\t\t\tmax: $Max,\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\ttype: 'dropdown',\n\t\t\t\t\tid: 'logical',\n\t\t\t\t\tlabel: 'Logical',\n\t\t\t\t\tdefault: 0,\n\t\t\t\t\tchoices: LogicalMappingsDropdownOptions,\n\t\t\t\t},\n\t\t\t],\n\t\t\tcallback: (feedback) => {\n\t\t\t\treturn (\n\t\t\t\t\tself.getVariableValue(\n\t\t\t\t\t\t'${Name}_' +\n\t\t\t\t\t\t\t(feedback.options.logical < LogicalMappingsEnum.InScreen_Left\n\t\t\t\t\t\t\t\t? '0' + feedback.options.logical\n\t\t\t\t\t\t\t\t: feedback.options.logical),\n\t\t\t\t\t) === feedback.options.value\n\t\t\t\t)\n\t\t\t},\n\t\t},\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?:Section|Side|SetColor|Color|AudioLink)\|(?<Type>[^\|\n]+)\|(?<Data>(?<Min>\d+)?-?(?<Max>\d+)?[^\|\n]*)
-\t\t$Name: {\n\t\t\tname: '$Name',\n\t\t\tdescription: '$Name',\n\t\t\ttype: 'boolean',\n\t\t\tdefaultStyle: {\n\t\t\t\tcolor: 0xffffff,\n\t\t\t\tbgcolor: 0x00ff00,\n\t\t\t},\n\t\t\toptions: [\n\t\t\t\t{\n\t\t\t\t\ttype: 'number',\n\t\t\t\t\tid: 'value',\n\t\t\t\t\tlabel: 'Value',\n\t\t\t\t\tdefault: 1,\n\t\t\t\t\tmin: $Min,\n\t\t\t\t\tmax: $Max,\n\t\t\t\t},\n\t\t\t\t{\n\t\t\t\t\ttype: 'number',\n\t\t\t\t\tid: 'index',\n\t\t\t\t\tlabel: 'Index',\n\t\t\t\t\tdefault: 0,\n\t\t\t\t\tmin: 0,\n\t\t\t\t\tmax: 16,\n\t\t\t\t},\n\t\t\t],\n\t\t\tcallback: (feedback) => {\n\t\t\t\treturn (\n\t\t\t\t\tself.getVariableValue(\n\t\t\t\t\t\t'${Name}_' + (feedback.options.index < 10 ? '0' + feedback.options.index : feedback.options.index),\n\t\t\t\t\t) === feedback.options.value\n\t\t\t\t)\n\t\t\t},\n\t\t},\n
-
-*/
 
 export function UpdateFeedbacks(self: ModuleInstance): void {
 	self.setFeedbackDefinitions({
@@ -1680,7 +1638,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			},
 		},
 
-		// Other mappings:
+		// Other Mappings:
 		SectionToggles: {
 			name: 'SectionToggles',
 			description: 'SectionToggles',

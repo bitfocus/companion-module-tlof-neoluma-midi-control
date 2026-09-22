@@ -1,30 +1,9 @@
 import type ModuleInstance from './main.js'
 
-/*
-Feedback mappings:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?<HasSections>[^\|\n]+)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t${Name}: number\n
-
-
-
-NEW:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|None\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t${Name}: number\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|Logical\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t${Name}_00: number\n\t${Name}_01: number\n\t${Name}_02: number\n\t${Name}_03: number\n\t${Name}_04: number\n\t${Name}_05: number\n\t${Name}_06: number\n\t${Name}_07: number\n\t${Name}_08: number\n\t${Name}_09: number\n\t${Name}_10: number\n\t${Name}_11: number\n\t${Name}_12: number\n\t${Name}_13: number\n\t${Name}_14: number\n\t${Name}_15: number\n\t${Name}_16: number\n\t${Name}_17: number\n\t${Name}_18: number\n\t${Name}_19: number\n\t${Name}_20: number\n\t${Name}_21: number\n\t${Name}_22: number\n\t${Name}_23: number\n\t${Name}_24: number\n\t${Name}_25: number\n\t${Name}_26: number\n\t${Name}_27: number\n\t${Name}_28: number\n\t${Name}_29: number\n\t${Name}_30: number\n\t${Name}_31: number\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?:Section|Side|SetColor|Color|AudioLink)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t${Name}_00: number\n\t${Name}_01: number\n\t${Name}_02: number\n\t${Name}_03: number\n\t${Name}_04: number\n\t${Name}_05: number\n\t${Name}_06: number\n\t${Name}_07: number\n\t${Name}_08: number\n\t${Name}_09: number\n\t${Name}_10: number\n\t${Name}_11: number\n\t${Name}_12: number\n\t${Name}_13: number\n\t${Name}_14: number\n\t${Name}_15: number\n\t${Name}_16: number\n
-
-*/
-
 export type VariablesSchema = {
 	connected: boolean
 
-	// Feedback mappings:
+	// Feedback Mappings:
 	AllowPortals: number
 	Blackout: number
 	BlinderIntensity: number
@@ -541,7 +520,7 @@ export type VariablesSchema = {
 	WashWidth_30: number
 	WashWidth_31: number
 
-	// Other mappings
+	// Other Mappings:
 	SectionToggles_00: number
 	SectionToggles_01: number
 	SectionToggles_02: number
@@ -629,28 +608,8 @@ export type VariablesSchema = {
 	AudioLink_16: number
 }
 
-/*
-Feedback mappings:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?<HasSections>[^\|\n]+)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t$Name: -1,\n
-
-
-NEW:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|None\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t$Name: -1,\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|Logical\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t${Name}_00: -1,\n\t${Name}_01: -1,\n\t${Name}_02: -1,\n\t${Name}_03: -1,\n\t${Name}_04: -1,\n\t${Name}_05: -1,\n\t${Name}_06: -1,\n\t${Name}_07: -1,\n\t${Name}_08: -1,\n\t${Name}_09: -1,\n\t${Name}_10: -1,\n\t${Name}_11: -1,\n\t${Name}_12: -1,\n\t${Name}_13: -1,\n\t${Name}_14: -1,\n\t${Name}_15: -1,\n\t${Name}_16: -1,\n\t${Name}_17: -1,\n\t${Name}_18: -1,\n\t${Name}_19: -1,\n\t${Name}_20: -1,\n\t${Name}_21: -1,\n\t${Name}_22: -1,\n\t${Name}_23: -1,\n\t${Name}_24: -1,\n\t${Name}_25: -1,\n\t${Name}_26: -1,\n\t${Name}_27: -1,\n\t${Name}_28: -1,\n\t${Name}_29: -1,\n\t${Name}_30: -1,\n\t${Name}_31: -1,\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?:Section|Side|SetColor|Color|AudioLink)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t${Name}_00: -1,\n\t${Name}_01: -1,\n\t${Name}_02: -1,\n\t${Name}_03: -1,\n\t${Name}_04: -1,\n\t${Name}_05: -1,\n\t${Name}_06: -1,\n\t${Name}_07: -1,\n\t${Name}_08: -1,\n\t${Name}_09: -1,\n\t${Name}_10: -1,\n\t${Name}_11: -1,\n\t${Name}_12: -1,\n\t${Name}_13: -1,\n\t${Name}_14: -1,\n\t${Name}_15: -1,\n\t${Name}_16: -1,\n
-
-
-*/
-
 export const defaultValues = {
+	// Feedback Mappings:
 	AllowPortals: -1,
 	Blackout: -1,
 	BlinderIntensity: -1,
@@ -685,7 +644,7 @@ export const defaultValues = {
 	MacroApplyManually: -1,
 	MacroSet: -1,
 
-	// Logical
+	// Logical Feedback Mappings:
 	Gobo_00: -1,
 	Gobo_01: -1,
 	Gobo_02: -1,
@@ -1167,7 +1126,7 @@ export const defaultValues = {
 	WashWidth_30: -1,
 	WashWidth_31: -1,
 
-	// Other mappings:
+	// Other Mappings:
 	SectionToggles_00: -1,
 	SectionToggles_01: -1,
 	SectionToggles_02: -1,
@@ -1255,31 +1214,11 @@ export const defaultValues = {
 	AudioLink_16: -1,
 }
 
-/*
-Feedback mappings:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?<HasSections>[^\|\n]+)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t\t$Name: { name: '$Name' },\n
-
-
-NEW:
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|None\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t\t$Name: { name: '$Name' },\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|Logical\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t\t${Name}_00: { name: '${Name} Logical 00' },\n\t\t${Name}_01: { name: '${Name} Logical 01' },\n\t\t${Name}_02: { name: '${Name} Logical 02' },\n\t\t${Name}_03: { name: '${Name} Logical 03' },\n\t\t${Name}_04: { name: '${Name} Logical 04' },\n\t\t${Name}_05: { name: '${Name} Logical 05' },\n\t\t${Name}_06: { name: '${Name} Logical 06' },\n\t\t${Name}_07: { name: '${Name} Logical 07' },\n\t\t${Name}_08: { name: '${Name} Logical 08' },\n\t\t${Name}_09: { name: '${Name} Logical 09' },\n\t\t${Name}_10: { name: '${Name} Logical 10' },\n\t\t${Name}_11: { name: '${Name} Logical 11' },\n\t\t${Name}_12: { name: '${Name} Logical 12' },\n\t\t${Name}_13: { name: '${Name} Logical 13' },\n\t\t${Name}_14: { name: '${Name} Logical 14' },\n\t\t${Name}_15: { name: '${Name} Logical 15' },\n\t\t${Name}_16: { name: '${Name} Logical 16' },\n\t\t${Name}_17: { name: '${Name} Logical 17' },\n\t\t${Name}_18: { name: '${Name} Logical 18' },\n\t\t${Name}_19: { name: '${Name} Logical 19' },\n\t\t${Name}_20: { name: '${Name} Logical 20' },\n\t\t${Name}_21: { name: '${Name} Logical 21' },\n\t\t${Name}_22: { name: '${Name} Logical 22' },\n\t\t${Name}_23: { name: '${Name} Logical 23' },\n\t\t${Name}_24: { name: '${Name} Logical 24' },\n\t\t${Name}_25: { name: '${Name} Logical 25' },\n\t\t${Name}_26: { name: '${Name} Logical 26' },\n\t\t${Name}_27: { name: '${Name} Logical 27' },\n\t\t${Name}_28: { name: '${Name} Logical 28' },\n\t\t${Name}_29: { name: '${Name} Logical 29' },\n\t\t${Name}_30: { name: '${Name} Logical 30' },\n\t\t${Name}_31: { name: '${Name} Logical 31' },\n
-
-^(?<Number>[^\|\n]+)\|(?<Name>[^\|\n]+)\|(?:Section|Side|SetColor|Color|AudioLink)\|(?<Type>[^\|\n]+)\|(?<Data>[^\|\n]+)
-\t\t${Name}_00: { name: '${Name} Index 00' },\n\t\t${Name}_01: { name: '${Name} Index 01' },\n\t\t${Name}_02: { name: '${Name} Index 02' },\n\t\t${Name}_03: { name: '${Name} Index 03' },\n\t\t${Name}_04: { name: '${Name} Index 04' },\n\t\t${Name}_05: { name: '${Name} Index 05' },\n\t\t${Name}_06: { name: '${Name} Index 06' },\n\t\t${Name}_07: { name: '${Name} Index 07' },\n\t\t${Name}_08: { name: '${Name} Index 08' },\n\t\t${Name}_09: { name: '${Name} Index 09' },\n\t\t${Name}_10: { name: '${Name} Index 10' },\n\t\t${Name}_11: { name: '${Name} Index 11' },\n\t\t${Name}_12: { name: '${Name} Index 12' },\n\t\t${Name}_13: { name: '${Name} Index 13' },\n\t\t${Name}_14: { name: '${Name} Index 14' },\n\t\t${Name}_15: { name: '${Name} Index 15' },\n\t\t${Name}_16: { name: '${Name} Index 16' },\n
-
-*/
-
 export function UpdateVariableDefinitions(self: ModuleInstance): void {
 	self.setVariableDefinitions({
 		connected: { name: 'Connected to VRChat World' },
 
-		// Feedback mappings:
+		// Feedback Mappings:
 		AllowPortals: { name: 'AllowPortals' },
 		Blackout: { name: 'Blackout' },
 		BlinderIntensity: { name: 'BlinderIntensity' },
@@ -1314,7 +1253,7 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 		MacroApplyManually: { name: 'MacroApplyManually' },
 		MacroSet: { name: 'MacroSet' },
 
-		// Logical Feedback Mappings
+		// Logical Feedback Mappings:
 		Gobo_00: { name: 'Gobo Logical 00' },
 		Gobo_01: { name: 'Gobo Logical 01' },
 		Gobo_02: { name: 'Gobo Logical 02' },
@@ -1796,7 +1735,7 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 		WashWidth_30: { name: 'WashWidth Logical 30' },
 		WashWidth_31: { name: 'WashWidth Logical 31' },
 
-		// Other mappings:
+		// Other Mappings:
 		SectionToggles_00: { name: 'SectionToggles Index 00' },
 		SectionToggles_01: { name: 'SectionToggles Index 01' },
 		SectionToggles_02: { name: 'SectionToggles Index 02' },
@@ -1885,8 +1824,6 @@ export function UpdateVariableDefinitions(self: ModuleInstance): void {
 	})
 	self.setVariableValues({
 		connected: false,
-
-		// Feedback mappings:
 		...defaultValues,
 	})
 }
