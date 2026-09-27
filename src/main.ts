@@ -221,6 +221,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	reset(doReconnect: boolean = true): void {
 		this._readLogTimeout.abort('reset')
+		this._logStream = null
 		this.setVariableValues({
 			connected: false,
 			...defaultValues,
@@ -246,6 +247,18 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 							await this._readLogs()
 							this._midiPing()
 						})
+						.catch((e) => {
+							if (e.name === 'AbortError')
+								if (typeof e.cause === 'string') console.log(`logRead aborted, because: ${e.cause}`)
+								else console.log(`reconnection aborted, because: ${e.cause}`)
+							else console.log(`reconnection failed, due to error: ${e}`)
+						})
+				})
+				.catch((e) => {
+					if (e.name === 'AbortError')
+						if (typeof e.cause === 'string') console.log(`reconnection aborted, because: ${e.cause}`)
+						else console.log(`reconnection aborted, because: ${e.cause}`)
+					else console.log(`reconnection failed, due to error: ${e}`)
 				})
 		}
 	}
