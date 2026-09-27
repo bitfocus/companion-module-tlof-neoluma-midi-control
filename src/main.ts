@@ -121,8 +121,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
 		this._lastUpdate = Date.now()
-		this._midiPing()
-		this._watchdogInterval = setInterval(() => this._tick(), 250)
+		this.startLogRead()
+		this._watchdogInterval = setInterval(() => this.#tick(), 250)
 
 		/*
 		const feedbacks = [
@@ -159,7 +159,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (toggle) {
 			let velocity = toggle.velocity
 			if (toggle.isLogical === true && logical !== undefined) velocity += logical
-			this._sendMidiControl(toggle.channel, toggle.number, velocity)
+			this.#sendMidiControl(toggle.channel, toggle.number, velocity)
 		} else {
 			this.log('error', `Could not find toggle with id=${option}`)
 		}
@@ -177,7 +177,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			let velocity = button.velocity
 			if (button.isLogical === true && logical !== undefined) velocity += logical
 			else if (typeof button.isLogical === 'number' && index !== undefined) velocity += index
-			this._sendMidiControl(button.channel, button.number, velocity)
+			this.#sendMidiControl(button.channel, button.number, velocity)
 		} else {
 			this.log('error', `Could not find button with id=${option}`)
 		}
@@ -194,7 +194,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (myEnum) {
 			let velocity = myEnum.velocity
 			if (myEnum.isLogical === true && logical !== undefined) velocity += logical
-			this._sendMidiControl(myEnum.channel, myEnum.number, velocity)
+			this.#sendMidiControl(myEnum.channel, myEnum.number, velocity)
 		} else {
 			this.log('error', `Could not find enum with id=${option}`)
 		}
@@ -213,7 +213,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (slider) {
 			let number = slider.number
 			if (slider.isLogical === true && logical !== undefined) number += logical
-			this._sendMidiControl(slider.channel, number, value)
+			this.#sendMidiControl(slider.channel, number, value)
 		} else {
 			this.log('error', `Could not find slider with id=${option}`)
 		}
@@ -239,20 +239,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				.then(() => {
 					this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
 					this._lastUpdate = Date.now()
-					void timersPromises
-						.setImmediate(undefined, {
-							signal: this._readLogTimeout.signal,
-						})
-						.then(async () => {
-							await this._readLogs()
-							this._midiPing()
-						})
-						.catch((e) => {
-							if (e.name === 'AbortError')
-								if (typeof e.cause === 'string') console.log(`logRead aborted, because: ${e.cause}`)
-								else console.log(`reconnection aborted, because: ${e.cause}`)
-							else console.log(`reconnection failed, due to error: ${e}`)
-						})
+					this.startLogRead()
 				})
 				.catch((e) => {
 					if (e.name === 'AbortError')
@@ -263,7 +250,24 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	_tick(): void {
+	startLogRead(): void {
+		void timersPromises
+			.setImmediate(undefined, {
+				signal: this._readLogTimeout.signal,
+			})
+			.then(async () => {
+				await this.#readLogs()
+				this.#midiPing()
+			})
+			.catch((e) => {
+				if (e.name === 'AbortError')
+					if (typeof e.cause === 'string') console.log(`logRead aborted, because: ${e.cause}`)
+					else console.log(`reconnection aborted, because: ${e.cause}`)
+				else console.log(`reconnection failed, due to error: ${e}`)
+			})
+	}
+
+	#tick(): void {
 		const elapsed = (Date.now() - this._lastUpdate) / 1000
 		if (elapsed > 20) {
 			this._lastUpdate = Date.now()
@@ -273,53 +277,53 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		const elapsedWatchdog = (Date.now() - this._lastWatchdog) / 1000
 		if (elapsedWatchdog > 5) {
-			this._midiPing()
+			this.#midiPing()
 			this._lastWatchdog = Date.now()
 		}
 	}
 
-	_sendMidiControl(channel: number, number: number, value: number): void {
+	#sendMidiControl(channel: number, number: number, value: number): void {
 		if (!this._midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending CC ch${channel} number${number} value${value}`)
 		this._midiOutput.sendMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
 	}
 
-	_sendMidiNoteOn(channel: number, note: number, velocity: number): void {
+	#sendMidiNoteOn(channel: number, note: number, velocity: number): void {
 		if (!this._midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_ON ch${channel} note${note} vel${velocity}`)
 		this._midiOutput.sendMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
-	_sendMidiNoteOff(channel: number, note: number, velocity: number): void {
+	#sendMidiNoteOff(channel: number, note: number, velocity: number): void {
 		if (!this._midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_OFF ch${channel} note${note} vel${velocity}`)
 		this._midiOutput.sendMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
-	_midiPing(): void {
+	#midiPing(): void {
 		if (!this._logStream || !this._midiOutput?.isPortOpen()) return
 		this.log('debug', 'Sending MidiPing')
-		this._sendMidiNoteOn(0, 1, 20) // Ping
+		this.#sendMidiNoteOn(0, 1, 20) // Ping
 	}
 
-	_setMidiReady(): void {
+	#setMidiReady(): void {
 		if (!this.getVariableValue('connected')) {
 			this.setVariableValues({ connected: true })
 			this.checkFeedbacks('connected')
 			this.updateStatus(InstanceStatus.Ok)
 
-			this._sendMidiNoteOff(0, 1, 119) // Set log received/processed OFF
-			this._sendMidiNoteOn(0, 1, 120) // Set midi feedback ON
-			this._sendMidiNoteOn(0, 1, 121) // Dump state
+			this.#sendMidiNoteOff(0, 1, 119) // Set log received/processed OFF
+			this.#sendMidiNoteOn(0, 1, 120) // Set midi feedback ON
+			this.#sendMidiNoteOn(0, 1, 121) // Dump state
 		}
 	}
 
-	_setMidiNotReady(): void {
+	#setMidiNotReady(): void {
 		this.updateStatus(InstanceStatus.Disconnected, 'Midi not ready')
 		this.reset()
 	}
 
-	_parseFeedbackLog(base64Data: string): LogFeedbackResult[] {
+	#parseFeedbackLog(base64Data: string): LogFeedbackResult[] {
 		let rawData
 		try {
 			rawData = Buffer.from(base64Data, 'base64')
@@ -399,10 +403,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		return result
 	}
 
-	async _readLogs(): Promise<boolean> {
+	async #readLogs(): Promise<boolean> {
 		if (this._logStream !== null || !this._midiOutput?.isPortOpen()) return false
 		try {
-			const logFile = await this._findVRCLog()
+			const logFile = await this.#findVRCLog()
 			if (logFile === null) return false
 
 			this._logStream = logFile
@@ -411,6 +415,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				})
 				.addListener('data', (data) => {
 					const text = typeof data === 'string' ? data : data.toString('utf8')
+					// noinspection RegExpRedundantEscape
 					const messageMatches = this.config.useEditorLog
 						? Array.from(
 								text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
@@ -428,16 +433,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 						const type = message[1].trim()
 						if (type === 'Pong') {
 							this.log('debug', 'Received Pong Log')
-							this._setMidiReady()
+							this.#setMidiReady()
 						} else if (type === 'Ready') {
 							this.log('debug', 'Received Ready Log')
-							this._setMidiReady()
+							this.#setMidiReady()
 						} else if (type === 'Not Ready') {
 							this.log('debug', 'Received Not Ready Log')
-							this._setMidiNotReady()
+							this.#setMidiNotReady()
 						} else if (type.startsWith('[Feedback] ')) {
 							const base64Data = message[2]
-							const returnedValues = this._parseFeedbackLog(base64Data)
+							const returnedValues = this.#parseFeedbackLog(base64Data)
 
 							for (const returnedValue of returnedValues) {
 								changes[
@@ -455,7 +460,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 									returnedValue.data === 0 &&
 									returnedValue.control.velocity !== 'ALL'
 								) {
-									this._sendMidiNoteOn(
+									this.#sendMidiNoteOn(
 										returnedValue.control.channel,
 										returnedValue.control.number,
 										returnedValue.control.velocity,
@@ -495,7 +500,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	async _findVRCLog(): Promise<FileHandle | null> {
+	async #findVRCLog(): Promise<FileHandle | null> {
 		this._logStream = null
 		let logs: string[] = []
 
