@@ -85,8 +85,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		this.#resetTimeout.abort('config updated')
 		this.#resetTimeout = new AbortController()
-		this.#logStream?.close()
-		this.#logStream = null
+		this.#stopLogRead()
 		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
 		this.#watchdogInterval = null
 
@@ -132,7 +131,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#lastUpdate = Date.now()
 		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
 		this.#watchdogInterval = setInterval(() => this.#tick(), 250)
-		this.startLogRead()
+		this.#startLogRead()
 
 		/*
 		const feedbacks = [
@@ -246,8 +245,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (parsedOptions.closeLogfile) {
 			this.#readLogTimeout.abort(parsedOptions.reason)
 			this.#readLogTimeout = new AbortController()
-			this.#logStream?.close()
-			this.#logStream = null
+			this.#stopLogRead()
 		}
 
 		this.#resetTimeout.abort(parsedOptions.reason)
@@ -270,7 +268,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				.then(() => {
 					if (parsedOptions.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
 					this.#lastUpdate = Date.now()
-					this.startLogRead()
+					this.#startLogRead()
 				})
 				.catch((e) => {
 					if (e.name === 'AbortError')
@@ -283,7 +281,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#inReset = false
 	}
 
-	startLogRead(): void {
+	#startLogRead(): void {
 		void timersPromises
 			.setImmediate(undefined, {
 				signal: this.#readLogTimeout.signal,
@@ -298,6 +296,14 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					else this.log('error', `reconnection aborted, because: ${e.cause}`)
 				else this.log('error', `reconnection failed, due to error: ${e}`)
 			})
+	}
+
+	#stopLogRead(): void {
+		if (this.#logStream === null) return
+		this.#logStream.close()
+		this.#logStream.push(null)
+		this.#logStream.read(0)
+		this.#logStream = null
 	}
 
 	#tick(): void {
