@@ -68,9 +68,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	async destroy(): Promise<void> {
 		this.reset(false)
 		this._resetTimeout.abort('destroying module')
-		if (this._watchdogInterval) clearInterval(this._watchdogInterval)
+		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
+		this._watchdogInterval = null
 		this._logStream?.close()
+		this._logStream = null
 		this._midiOutput?.close()
+		this._midiOutput = null
 		this.log('debug', `${this.id} destroyed`)
 	}
 
@@ -80,7 +83,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
 		this._resetTimeout.abort('config updated')
-		if (this._watchdogInterval) clearInterval(this._watchdogInterval)
+		this._logStream?.close()
+		this._logStream = null
+		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
+		this._watchdogInterval = null
 
 		this._midiOutput?.close()
 		this._midiOutput = new Output(config.outPortName)
@@ -221,6 +227,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	reset(doReconnect: boolean = true): void {
 		this._readLogTimeout.abort('reset')
+		this._logStream?.close()
 		this._logStream = null
 		this.setVariableValues({
 			connected: false,
@@ -301,7 +308,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	#midiPing(): void {
-		if (!this._logStream || !this._midiOutput?.isPortOpen()) return
+		if (this._logStream === null || !this._midiOutput?.isPortOpen()) return
 		this.log('debug', 'Sending MidiPing')
 		this.#sendMidiNoteOn(0, 1, 20) // Ping
 	}
@@ -410,11 +417,18 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			if (logFile === null) return false
 
 			this._logStream = logFile.createReadStream({
+				encoding: 'utf8',
 				start: 0,
+				autoClose: true,
+				emitClose: true,
+				signal: this._readLogTimeout.signal,
 			})
 
 			this._logStream.addListener('data', (data) => {
-				const text = typeof data === 'string' ? data : data.toString('utf8')
+				const lastNewline = data.lastIndexOf('\n')
+				if (lastNewline < 0) return
+				if (lastNewline < data.length) this._logStream?.unshift(data.slice(lastNewline + 1), 'utf8')
+				const text = typeof data === 'string' ? data.slice(0, lastNewline) : data.toString('utf8', 0, lastNewline)
 				// noinspection RegExpRedundantEscape
 				const messageMatches = this.config.useEditorLog
 					? Array.from(
@@ -492,7 +506,17 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 				this._lastUpdate = Date.now()
 			})
-			this._logStream.addListener('error', (e) => console.error(`Error during logfile read: ${e}`))
+			this._logStream.addListener('close', () => {
+				this.log('debug', 'logfile closed')
+				this._logStream = null
+				this.reset()
+			})
+			this._logStream.addListener('error', (e) => {
+				if (e.name === 'AbortError')
+					if (typeof e.cause === 'string') this.log('error', `logRead aborted, because: ${e.cause}`)
+					else this.log('error', `logRead aborted, because: ${e}`)
+				else this.log('error', `logRead failed, due to error: ${e}`)
+			})
 
 			return true
 		} catch (err) {
@@ -502,7 +526,6 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async #findVRCLog(): Promise<FileHandle | null> {
-		this._logStream = null
 		let logs: string[] = []
 
 		try {
