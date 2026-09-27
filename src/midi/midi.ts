@@ -68,10 +68,11 @@ export function getOutputs(output?: node_midi.Output): string[] {
 	try {
 		for (let i = 0; i < output.getPortCount(); i++) {
 			let counter = 0
-			let numberedPortName = output.getPortName(i)
+			const portName = output.getPortName(i)
+			let numberedPortName = portName
 			while (outputs.includes(numberedPortName)) {
 				counter++
-				numberedPortName += ` ${counter}`
+				numberedPortName = `${portName} ${counter}`
 			}
 			outputs.push(numberedPortName)
 		}
