@@ -40,19 +40,19 @@ type LogFeedbackResult = {
 
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
-	private _midiOutput: Output | null = null
-	private _inReset: boolean = false
-	private _logStream: ReadStream | null = null
-	private _lastUpdate: number
-	private _lastWatchdog: number
-	private _watchdogInterval: NodeJS.Timeout | null = null
-	private _resetTimeout: AbortController = new AbortController()
-	private _readLogTimeout: AbortController = new AbortController()
+	#midiOutput: Output | null = null
+	#inReset: boolean = false
+	#logStream: ReadStream | null = null
+	#lastUpdate: number
+	#lastWatchdog: number
+	#watchdogInterval: NodeJS.Timeout | null = null
+	#resetTimeout: AbortController = new AbortController()
+	#readLogTimeout: AbortController = new AbortController()
 
 	constructor(internal: unknown) {
 		super(internal)
-		this._lastUpdate = Date.now()
-		this._lastWatchdog = Date.now()
+		this.#lastUpdate = Date.now()
+		this.#lastWatchdog = Date.now()
 	}
 
 	async init(config: ModuleConfig): Promise<void> {
@@ -71,10 +71,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			reason: 'destroying module',
 			doReconnect: false,
 		})
-		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
-		this._watchdogInterval = null
-		this._midiOutput?.close()
-		this._midiOutput = null
+		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
+		this.#watchdogInterval = null
+		this.#midiOutput?.close()
+		this.#midiOutput = null
 		this.log('debug', `${this.id} destroyed`)
 	}
 
@@ -83,18 +83,18 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
-		this._resetTimeout.abort('config updated')
-		this._resetTimeout = new AbortController()
-		this._logStream?.close()
-		this._logStream = null
-		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
-		this._watchdogInterval = null
+		this.#resetTimeout.abort('config updated')
+		this.#resetTimeout = new AbortController()
+		this.#logStream?.close()
+		this.#logStream = null
+		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
+		this.#watchdogInterval = null
 
-		this._midiOutput?.close()
-		this._midiOutput = new Output(config.outPortName)
+		this.#midiOutput?.close()
+		this.#midiOutput = new Output(config.outPortName)
 
-		const midiOutStatus = this._midiOutput.isPortOpen()
-		this.log('info', `Selected Out Port "${this._midiOutput.name}" is ${midiOutStatus ? '' : 'NOT '}Open.`)
+		const midiOutStatus = this.#midiOutput.isPortOpen()
+		this.log('info', `Selected Out Port "${this.#midiOutput.name}" is ${midiOutStatus ? '' : 'NOT '}Open.`)
 
 		if (!midiOutStatus) {
 			this.updateStatus(InstanceStatus.BadConfig, 'MIDI Out Port not open')
@@ -125,13 +125,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	start(): void {
-		this._resetTimeout.abort('module started')
-		this._resetTimeout = new AbortController()
+		this.#resetTimeout.abort('module started')
+		this.#resetTimeout = new AbortController()
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
-		this._lastUpdate = Date.now()
-		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
-		this._watchdogInterval = setInterval(() => this.#tick(), 250)
+		this.#lastUpdate = Date.now()
+		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
+		this.#watchdogInterval = setInterval(() => this.#tick(), 250)
 		this.startLogRead()
 
 		/*
@@ -237,21 +237,21 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			updateStatus: true,
 		}
 
-		if (this._inReset) return
-		this._inReset = true
+		if (this.#inReset) return
+		this.#inReset = true
 
 		const parsedOptions = { ...defaultOptions, ...(options ?? {}) }
 
-		this._lastUpdate = Date.now()
+		this.#lastUpdate = Date.now()
 		if (parsedOptions.closeLogfile) {
-			this._readLogTimeout.abort(parsedOptions.reason)
-			this._readLogTimeout = new AbortController()
-			this._logStream?.close()
-			this._logStream = null
+			this.#readLogTimeout.abort(parsedOptions.reason)
+			this.#readLogTimeout = new AbortController()
+			this.#logStream?.close()
+			this.#logStream = null
 		}
 
-		this._resetTimeout.abort(parsedOptions.reason)
-		this._resetTimeout = new AbortController()
+		this.#resetTimeout.abort(parsedOptions.reason)
+		this.#resetTimeout = new AbortController()
 
 		this.setVariableValues({
 			connected: false,
@@ -265,11 +265,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			void timersPromises
 				// 1 second
 				.setTimeout(1e3, undefined, {
-					signal: this._resetTimeout.signal,
+					signal: this.#resetTimeout.signal,
 				})
 				.then(() => {
 					if (parsedOptions.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
-					this._lastUpdate = Date.now()
+					this.#lastUpdate = Date.now()
 					this.startLogRead()
 				})
 				.catch((e) => {
@@ -280,13 +280,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				})
 		}
 
-		this._inReset = false
+		this.#inReset = false
 	}
 
 	startLogRead(): void {
 		void timersPromises
 			.setImmediate(undefined, {
-				signal: this._readLogTimeout.signal,
+				signal: this.#readLogTimeout.signal,
 			})
 			.then(async () => {
 				await this.#readLogs()
@@ -301,43 +301,43 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	#tick(): void {
-		const elapsed = (Date.now() - this._lastUpdate) / 1000
+		const elapsed = (Date.now() - this.#lastUpdate) / 1000
 		const timeout = 20
 		if (elapsed > timeout) {
-			this._lastUpdate = Date.now()
+			this.#lastUpdate = Date.now()
 			this.reset({
 				reason: `VRChat World did not respond to Midi Pings in the last ${timeout} seconds`,
 			})
 			return
 		}
 
-		const elapsedWatchdog = (Date.now() - this._lastWatchdog) / 1000
+		const elapsedWatchdog = (Date.now() - this.#lastWatchdog) / 1000
 		if (elapsedWatchdog > 5) {
 			this.#midiPing()
-			this._lastWatchdog = Date.now()
+			this.#lastWatchdog = Date.now()
 		}
 	}
 
 	#sendMidiControl(channel: number, number: number, value: number): void {
-		if (!this._midiOutput?.isPortOpen()) return
+		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending CC ch${channel} number${number} value${value}`)
-		this._midiOutput.sendMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
+		this.#midiOutput.sendMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
 	}
 
 	#sendMidiNoteOn(channel: number, note: number, velocity: number): void {
-		if (!this._midiOutput?.isPortOpen()) return
+		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_ON ch${channel} note${note} vel${velocity}`)
-		this._midiOutput.sendMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
+		this.#midiOutput.sendMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
 	#sendMidiNoteOff(channel: number, note: number, velocity: number): void {
-		if (!this._midiOutput?.isPortOpen()) return
+		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_OFF ch${channel} note${note} vel${velocity}`)
-		this._midiOutput.sendMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
+		this.#midiOutput.sendMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
 	#midiPing(): void {
-		if (this._logStream === null || !this._midiOutput?.isPortOpen()) return
+		if (this.#logStream === null || !this.#midiOutput?.isPortOpen()) return
 		this.log('debug', 'Sending MidiPing')
 		this.#sendMidiNoteOn(0, 1, 20) // Ping
 	}
@@ -443,26 +443,26 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async #readLogs(): Promise<boolean> {
-		if (this._logStream !== null || !this._midiOutput?.isPortOpen()) return false
+		if (this.#logStream !== null || !this.#midiOutput?.isPortOpen()) return false
 		try {
 			const logFile = await this.#findVRCLog()
 			if (logFile === null) return false
 			const stat = await logFile.stat()
 
-			this._logStream = logFile.createReadStream({
+			this.#logStream = logFile.createReadStream({
 				encoding: 'utf8',
 				start: stat.size,
 				autoClose: false,
 				emitClose: true,
-				signal: this._readLogTimeout.signal,
+				signal: this.#readLogTimeout.signal,
 				highWaterMark: 1024, //don't chunk too much
 			})
 
-			this._logStream.addListener('data', (data) => {
+			this.#logStream.addListener('data', (data) => {
 				this.log('debug', 'received data from logfile')
 				const lastNewline = data.lastIndexOf('\n')
 				if (lastNewline < 0) return
-				if (lastNewline < data.length) this._logStream?.unshift(data.slice(lastNewline + 1), 'utf8')
+				if (lastNewline < data.length) this.#logStream?.unshift(data.slice(lastNewline + 1), 'utf8')
 				const text = typeof data === 'string' ? data.slice(0, lastNewline) : data.toString('utf8', 0, lastNewline)
 				this.log('debug', `received ${text.length} characters`)
 				// noinspection RegExpRedundantEscape
@@ -540,24 +540,24 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					this.checkAllFeedbacks()
 				}
 
-				this._lastUpdate = Date.now()
+				this.#lastUpdate = Date.now()
 			})
-			this._logStream.addListener('close', () => {
+			this.#logStream.addListener('close', () => {
 				this.log('debug', 'logfile closed')
-				this._logStream = null
+				this.#logStream = null
 				this.reset({
 					reason: 'Logfile Closed',
 				})
 			})
-			this._logStream.addListener('error', (e) => {
+			this.#logStream.addListener('error', (e) => {
 				if (e.name === 'AbortError')
 					if (typeof e.cause === 'string') this.log('error', `logRead aborted, because: ${e.cause}`)
 					else this.log('error', `logRead aborted, because: ${e}`)
 				else this.log('error', `logRead failed, due to error: ${e}`)
 
-				this._logStream?.close()
+				this.#logStream?.close()
 			})
-			this._logStream.resume()
+			this.#logStream.resume()
 
 			return true
 		} catch (err) {
