@@ -24,12 +24,12 @@ export class Output {
 	}
 
 	close(): void {
-		if (!this._output) return
+		if (this._output === null) return
 		try {
 			this._output.closePort()
 			this._output.destroy()
-		} catch {
-			/* empty */
+		} catch (e) {
+			console.error(`Error whilst closing port: ${e}`)
 		}
 		this._output = null
 	}
@@ -38,7 +38,8 @@ export class Output {
 		if (this._output === null) return false
 		try {
 			return this._output.isPortOpen()
-		} catch {
+		} catch (e) {
+			console.error(`Error determining if port is open: ${e}`)
 			return false
 		}
 	}
@@ -48,7 +49,8 @@ export class Output {
 		try {
 			this._output.sendMessage(bytes)
 			return true
-		} catch {
+		} catch (e) {
+			console.error(`Error during sending Midi Message: ${e}`)
 			return false
 		}
 	}
@@ -66,8 +68,7 @@ export function getOutputs(output?: node_midi.Output): string[] {
 	try {
 		for (let i = 0; i < output.getPortCount(); i++) {
 			let counter = 0
-			const portName = output.getPortName(i)
-			let numberedPortName = portName
+			let numberedPortName = output.getPortName(i)
 			while (outputs.includes(numberedPortName)) {
 				counter++
 				numberedPortName += ` ${counter}`

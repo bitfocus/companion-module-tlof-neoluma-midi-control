@@ -6,7 +6,8 @@ import { UpdateActions, type ActionsSchema } from './actions.js'
 import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
 import { UpdatePresets } from './presets.js'
 import { Output } from './midi/midi.js'
-import fs from 'fs'
+import fsPromises from 'fs/promises'
+import timersPromises from 'timers/promises'
 import path from 'path'
 import os from 'os'
 import toggles from './mapping/toggles.js'
@@ -17,6 +18,8 @@ import type LogicalMappingsEnum from './mapping/logical_mappings_enum.js'
 import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mappings.js'
 import type MappingData from './mapping/mapping_data.js'
 import type { SliderMappingData } from './mapping/mapping_data.js'
+import type { FileHandle } from 'node:fs/promises'
+import type { ReadStream } from 'node:fs'
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -38,12 +41,12 @@ type LogFeedbackResult = {
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	private _midiOutput: Output | null = null
-	private _logStream: { path: string; bytesRead: number } | false | null = null
+	private _logStream: ReadStream | null = null
 	private _lastUpdate: number
 	private _lastWatchdog: number
-	private _watchdogInterval: NodeJS.Timeout | number | null = null
-	private _resetTimeout: NodeJS.Timeout | number | null = null
-	private _fd: number | null = null
+	private _watchdogInterval: NodeJS.Timeout | null = null
+	private _resetTimeout: AbortController = new AbortController()
+	private _readLogTimeout: AbortController = new AbortController()
 
 	constructor(internal: unknown) {
 		super(internal)
@@ -64,14 +67,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	async destroy(): Promise<void> {
 		this.reset(false)
-		if (this._resetTimeout !== null) clearTimeout(this._resetTimeout)
+		this._resetTimeout.abort('destroying module')
 		if (this._watchdogInterval) clearInterval(this._watchdogInterval)
-		if (this._fd !== null) {
-			fs.closeSync(this._fd)
-			this._fd = null
-		}
-		if (this._logStream) this._logStream = null
-		if (this._midiOutput) this._midiOutput.close()
+		this._logStream?.close()
+		this._midiOutput?.close()
 		this.log('debug', `${this.id} destroyed`)
 	}
 
@@ -80,18 +79,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
-		if (this._resetTimeout !== null) {
-			clearTimeout(this._resetTimeout)
-			this._resetTimeout = null
-		}
+		this._resetTimeout.abort('config updated')
 		if (this._watchdogInterval) clearInterval(this._watchdogInterval)
-		if (this._fd !== null) {
-			fs.closeSync(this._fd)
-			this._fd = null
-		}
-		if (this._logStream) this._logStream = null
-		if (this._midiOutput) this._midiOutput.close()
 
+		this._midiOutput?.close()
 		this._midiOutput = new Output(config.outPortName)
 
 		const midiOutStatus = this._midiOutput.isPortOpen()
@@ -126,14 +117,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	start(): void {
-		if (this._resetTimeout !== null) {
-			clearTimeout(this._resetTimeout)
-			this._resetTimeout = null
-		}
+		this._resetTimeout.abort('module started')
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
 		this._lastUpdate = Date.now()
-		this._findVRCLog()
 		this._midiPing()
 		this._watchdogInterval = setInterval(() => this._tick(), 250)
 
@@ -233,46 +220,42 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	reset(doReconnect: boolean = true): void {
-		// kind of check if we're already trying to connect
-		if (this._logStream === false) return
-
-		if (this._fd !== null) {
-			fs.closeSync(this._fd)
-			this._fd = null
-		}
-		this._logStream = false
-
-		if (this.getVariableValue('connected')) {
-			this.setVariableValues({ connected: false })
-			this.checkFeedbacks('connected')
-		}
-		this.setVariableValues(defaultValues)
+		this._readLogTimeout.abort('reset')
+		this.setVariableValues({
+			connected: false,
+			...defaultValues,
+		})
 		this.checkAllFeedbacks()
 		this.updateStatus(InstanceStatus.Disconnected, 'Connection Lost or Reset')
 
-		if (this._resetTimeout !== null) clearTimeout(this._resetTimeout)
+		this._resetTimeout.abort('resetting module')
 		if (doReconnect) {
-			this._resetTimeout = setTimeout(() => {
-				this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
-				this._lastUpdate = Date.now()
-				this._findVRCLog()
-				this._midiPing()
-			}, 1e3) // 1 second
+			void timersPromises
+				// 1 second
+				.setTimeout(1e3, undefined, {
+					signal: this._resetTimeout.signal,
+				})
+				.then(() => {
+					this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
+					this._lastUpdate = Date.now()
+					void timersPromises
+						.setImmediate(undefined, {
+							signal: this._readLogTimeout.signal,
+						})
+						.then(async () => {
+							await this._readLogs()
+							this._midiPing()
+						})
+				})
 		}
 	}
 
 	_tick(): void {
-		if (this._logStream === false) return
-
-		if (this._readLogs()) {
+		const elapsed = (Date.now() - this._lastUpdate) / 1000
+		if (elapsed > 20) {
 			this._lastUpdate = Date.now()
-		} else {
-			const elapsed = (Date.now() - this._lastUpdate) / 1000
-			if (elapsed > 20) {
-				this._lastUpdate = Date.now()
-				this.reset()
-				return
-			}
+			this.reset()
+			return
 		}
 
 		const elapsedWatchdog = (Date.now() - this._lastWatchdog) / 1000
@@ -403,110 +386,103 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		return result
 	}
 
-	_readLogs(): boolean {
-		if (!this._logStream || !this._midiOutput?.isPortOpen()) return false
+	async _readLogs(): Promise<boolean> {
+		if (this._logStream !== null || !this._midiOutput?.isPortOpen()) return false
 		try {
-			const stat = fs.statSync(this._logStream.path)
-			const newBytes = stat.size - this._logStream.bytesRead
-			if (newBytes <= 0) return false
+			const logFile = await this._findVRCLog()
+			if (logFile === null) return false
 
-			const buf = Buffer.alloc(newBytes)
-			if (this._fd === null) this._fd = fs.openSync(this._logStream.path, 'r')
-			fs.readSync(this._fd, buf, 0, newBytes, this._logStream.bytesRead)
-			this._logStream.bytesRead += newBytes
+			this._logStream = logFile
+				.createReadStream({
+					start: 0,
+				})
+				.addListener('data', (data) => {
+					const text = typeof data === 'string' ? data : data.toString('utf8')
+					const messageMatches = this.config.useEditorLog
+						? Array.from(
+								text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
+							)
+						: Array.from(
+								text.matchAll(
+									/^[0-9]{4}\.(?:0[1-9]|1[0-2])\.(?:[012][0-9]|3[01]) (?:[01][0-9]|2[0-4]):(?:[0-5][0-9]|60|61):(?:[0-5][0-9]|60|61) (?:Debug|Warning|Error)\s*-\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm,
+								),
+							)
 
-			const text = buf.toString('utf8')
+					if (messageMatches.length === 0) return
 
-			const messageMatches = this.config.useEditorLog
-				? Array.from(
-						text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
-					)
-				: Array.from(
-						text.matchAll(
-							/^[0-9]{4}\.(?:0[1-9]|1[0-2])\.(?:[012][0-9]|3[01]) (?:[01][0-9]|2[0-4]):(?:[0-5][0-9]|60|61):(?:[0-5][0-9]|60|61) (?:Debug|Warning|Error)\s*-\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm,
-						),
-					)
+					const changes: { [variable: string]: number } = {}
+					for (const message of messageMatches) {
+						const type = message[1].trim()
+						if (type === 'Pong') {
+							this.log('debug', 'Received Pong Log')
+							this._setMidiReady()
+						} else if (type === 'Ready') {
+							this.log('debug', 'Received Ready Log')
+							this._setMidiReady()
+						} else if (type === 'Not Ready') {
+							this.log('debug', 'Received Not Ready Log')
+							this._setMidiNotReady()
+						} else if (type.startsWith('[Feedback] ')) {
+							const base64Data = message[2]
+							const returnedValues = this._parseFeedbackLog(base64Data)
 
-			if (messageMatches.length === 0) return false
+							for (const returnedValue of returnedValues) {
+								changes[
+									returnedValue.mapping.name +
+										(returnedValue.extraDataOrSection >= 0
+											? '_' +
+												(returnedValue.extraDataOrSection >= 10
+													? returnedValue.extraDataOrSection
+													: '0' + returnedValue.extraDataOrSection)
+											: '')
+								] = returnedValue.data
 
-			const changes: { [variable: string]: number } = {}
-			for (const message of messageMatches) {
-				const type = message[1].trim()
-				if (type === 'Pong') {
-					this.log('debug', 'Received Pong Log')
-					this._setMidiReady()
-				} else if (type === 'Ready') {
-					this.log('debug', 'Received Ready Log')
-					this._setMidiReady()
-				} else if (type === 'Not Ready') {
-					this.log('debug', 'Received Not Ready Log')
-					this._setMidiNotReady()
-				} else if (type.startsWith('[Feedback] ')) {
-					const base64Data = message[2]
-					const returnedValues = this._parseFeedbackLog(base64Data)
-
-					for (const returnedValue of returnedValues) {
-						changes[
-							returnedValue.mapping.name +
-								(returnedValue.extraDataOrSection >= 0
-									? '_' +
-										(returnedValue.extraDataOrSection >= 10
-											? returnedValue.extraDataOrSection
-											: '0' + returnedValue.extraDataOrSection)
-									: '')
-						] = returnedValue.data
-
-						if (
-							returnedValue.mapping.name === 'MidiFeedback' &&
-							returnedValue.data === 0 &&
-							returnedValue.control.velocity !== 'ALL'
-						) {
-							this._sendMidiNoteOn(
-								returnedValue.control.channel,
-								returnedValue.control.number,
-								returnedValue.control.velocity,
-							) // Set midi feedback ON
-						} else if (
-							returnedValue.mapping.name === 'MidiLog' &&
-							returnedValue.data === 1 &&
-							returnedValue.control.velocity !== 'ALL'
-						) {
-							// this._SendMidiNoteOff(
-							// 	returnedValue.control.channel,
-							// 	returnedValue.control.number,
-							// 	returnedValue.control.velocity,
-							// ) // Set log received/processed OFF
+								if (
+									returnedValue.mapping.name === 'MidiFeedback' &&
+									returnedValue.data === 0 &&
+									returnedValue.control.velocity !== 'ALL'
+								) {
+									this._sendMidiNoteOn(
+										returnedValue.control.channel,
+										returnedValue.control.number,
+										returnedValue.control.velocity,
+									) // Set midi feedback ON
+								} else if (
+									returnedValue.mapping.name === 'MidiLog' &&
+									returnedValue.data === 1 &&
+									returnedValue.control.velocity !== 'ALL'
+								) {
+									// this._SendMidiNoteOff(
+									// 	returnedValue.control.channel,
+									// 	returnedValue.control.number,
+									// 	returnedValue.control.velocity,
+									// ) // Set log received/processed OFF
+								}
+							}
 						}
 					}
-				}
-			}
 
-			if (Object.keys(changes).length > 0) {
-				console.log(changes)
+					if (Object.keys(changes).length > 0) {
+						console.log(changes)
 
-				this.setVariableValues(changes)
-				for (const name of Object.keys(changes)) {
-					this.checkFeedbacks(name as keyof FeedbacksSchema)
-				}
-				this.checkAllFeedbacks()
-			}
+						this.setVariableValues(changes)
+						for (const name of Object.keys(changes)) {
+							this.checkFeedbacks(name as keyof FeedbacksSchema)
+						}
+						this.checkAllFeedbacks()
+					}
+
+					this._lastUpdate = Date.now()
+				})
 
 			return true
 		} catch (err) {
 			this.log('warn', `Error reading logs: ${err}`)
-			if (this._fd !== null) {
-				fs.closeSync(this._fd)
-				this._fd = null
-			}
 			return false
 		}
 	}
 
-	_findVRCLog(): void {
-		if (this._fd !== null) {
-			fs.closeSync(this._fd)
-			this._fd = null
-		}
+	async _findVRCLog(): Promise<FileHandle | null> {
 		this._logStream = null
 		let logs: string[] = []
 
@@ -516,18 +492,19 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					os.platform() === 'win32'
 						? path.join(os.homedir(), 'AppData', 'Local', 'Unity', 'Editor', 'Editor.log')
 						: path.join(os.homedir(), '.config', 'unity3d', 'Editor.log') // Assume XDG defaults
-				if (fs.existsSync(vrcEditorPath)) logs = [vrcEditorPath]
+				return await fsPromises.open(vrcEditorPath, 'r')
 			} else {
 				const localLowPath =
 					os.platform() === 'win32'
 						? path.join(os.homedir(), 'AppData', 'LocalLow')
 						: path.join(os.homedir(), '.local', 'share') // Assume XDG defaults
 				const vrcPath = path.join(localLowPath, 'VRChat', 'VRChat')
-				logs = fs
-					.readdirSync(vrcPath)
-					.filter((f) => f.match(/^output_log_.*\.txt$/))
-					.map((f) => path.join(vrcPath, f))
-					.sort()
+				logs = await fsPromises.readdir(vrcPath).then((v) =>
+					v
+						.filter((f) => f.match(/^output_log_.*\.txt$/))
+						.map((f) => path.join(vrcPath, f))
+						.sort(),
+				)
 			}
 		} catch (err) {
 			this.log('error', `Error finding logs: ${err}`)
@@ -536,18 +513,18 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (logs.length === 0) {
 			this.updateStatus(InstanceStatus.ConnectionFailure, 'Cannot find logs')
 			this.reset()
-			return
+			return null
 		}
 
 		const latest = logs[logs.length - 1]
 		try {
-			const size = fs.statSync(latest).size
-			this._logStream = { path: latest, bytesRead: size > 0 ? size - 1 : 0 }
+			const file = await fsPromises.open(latest)
 			this.log('debug', `Watching log: ${latest.replace(os.homedir(), '$HOME')}`)
+			return file
 		} catch {
 			this.updateStatus(InstanceStatus.ConnectionFailure, 'Failed to read logs')
 			this.reset()
-			return
+			return null
 		}
 	}
 }
