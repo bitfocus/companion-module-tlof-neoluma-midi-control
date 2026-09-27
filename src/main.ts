@@ -230,30 +230,27 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	reset(options?: { reason?: string; closeLogfile?: boolean; doReconnect?: boolean; updateStatus?: boolean }): void {
+		const defaultOptions = {
+			reason: 'reset',
+			closeLogfile: true,
+			doReconnect: true,
+			updateStatus: true,
+		}
+
 		if (this._inReset) return
 		this._inReset = true
 
-		if (typeof options === 'undefined')
-			options = {
-				reason: 'reset',
-				closeLogfile: true,
-				doReconnect: true,
-				updateStatus: true,
-			}
-		if (typeof options.reason === 'undefined') options.reason = 'reset'
-		if (typeof options.closeLogfile === 'undefined') options.closeLogfile = true
-		if (typeof options.doReconnect === 'undefined') options.doReconnect = true
-		if (typeof options.updateStatus === 'undefined') options.updateStatus = true
+		const parsedOptions = { ...defaultOptions, ...(options ?? {}) }
 
 		this._lastUpdate = Date.now()
-		if (options.closeLogfile) {
-			this._readLogTimeout.abort(options.reason)
+		if (parsedOptions.closeLogfile) {
+			this._readLogTimeout.abort(parsedOptions.reason)
 			this._readLogTimeout = new AbortController()
 			this._logStream?.close()
 			this._logStream = null
 		}
 
-		this._resetTimeout.abort(options.reason)
+		this._resetTimeout.abort(parsedOptions.reason)
 		this._resetTimeout = new AbortController()
 
 		this.setVariableValues({
@@ -261,17 +258,17 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			...defaultValues,
 		})
 		this.checkAllFeedbacks()
-		if (options.updateStatus)
-			this.updateStatus(InstanceStatus.Disconnected, `Connection Lost or Reset - ${options.reason}`)
+		if (parsedOptions.updateStatus)
+			this.updateStatus(InstanceStatus.Disconnected, `Connection Lost or Reset - ${parsedOptions.reason}`)
 
-		if (options.doReconnect) {
+		if (parsedOptions.doReconnect) {
 			void timersPromises
 				// 1 second
 				.setTimeout(1e3, undefined, {
 					signal: this._resetTimeout.signal,
 				})
 				.then(() => {
-					if (options.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
+					if (parsedOptions.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
 					this._lastUpdate = Date.now()
 					this.startLogRead()
 				})
@@ -458,13 +455,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				autoClose: false,
 				emitClose: true,
 				signal: this._readLogTimeout.signal,
+				highWaterMark: 1024, //don't chunk too much
 			})
 
 			this._logStream.addListener('data', (data) => {
+				this.log('debug', 'received data from logfile')
 				const lastNewline = data.lastIndexOf('\n')
 				if (lastNewline < 0) return
 				if (lastNewline < data.length) this._logStream?.unshift(data.slice(lastNewline + 1), 'utf8')
 				const text = typeof data === 'string' ? data.slice(0, lastNewline) : data.toString('utf8', 0, lastNewline)
+				this.log('debug', `received ${text.length} characters`)
 				// noinspection RegExpRedundantEscape
 				const messageMatches = this.config.useEditorLog
 					? Array.from(
@@ -557,6 +557,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 				this._logStream?.close()
 			})
+			this._logStream.resume()
 
 			return true
 		} catch (err) {
