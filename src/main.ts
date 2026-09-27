@@ -250,9 +250,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				})
 				.catch((e) => {
 					if (e.name === 'AbortError')
-						if (typeof e.cause === 'string') console.log(`reconnection aborted, because: ${e.cause}`)
-						else console.log(`reconnection aborted, because: ${e.cause}`)
-					else console.log(`reconnection failed, due to error: ${e}`)
+						if (typeof e.cause === 'string') this.log('error', `reconnection aborted, because: ${e.cause}`)
+						else this.log('error', `reconnection aborted, because: ${e.cause}`)
+					else this.log('error', `reconnection failed, due to error: ${e}`)
 				})
 		}
 	}
@@ -268,9 +268,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			})
 			.catch((e) => {
 				if (e.name === 'AbortError')
-					if (typeof e.cause === 'string') console.log(`logRead aborted, because: ${e.cause}`)
-					else console.log(`reconnection aborted, because: ${e.cause}`)
-				else console.log(`reconnection failed, due to error: ${e}`)
+					if (typeof e.cause === 'string') this.log('error', `logRead aborted, because: ${e.cause}`)
+					else this.log('error', `reconnection aborted, because: ${e.cause}`)
+				else this.log('error', `reconnection failed, due to error: ${e}`)
 			})
 	}
 
