@@ -66,12 +66,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async destroy(): Promise<void> {
-		this.reset(false)
-		this._resetTimeout.abort('destroying module')
+		this.reset({
+			reason: 'destroying module',
+			doReconnect: false,
+		})
 		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
 		this._watchdogInterval = null
-		this._logStream?.close()
-		this._logStream = null
 		this._midiOutput?.close()
 		this._midiOutput = null
 		this.log('debug', `${this.id} destroyed`)
@@ -83,6 +83,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
 		this._resetTimeout.abort('config updated')
+		this._resetTimeout = new AbortController()
 		this._logStream?.close()
 		this._logStream = null
 		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
@@ -124,11 +125,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	start(): void {
 		this._resetTimeout.abort('module started')
+		this._resetTimeout = new AbortController()
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
 		this._lastUpdate = Date.now()
-		this.startLogRead()
+		if (this._watchdogInterval !== null) clearInterval(this._watchdogInterval)
 		this._watchdogInterval = setInterval(() => this.#tick(), 250)
+		this.startLogRead()
 
 		/*
 		const feedbacks = [
@@ -225,26 +228,41 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	reset(doReconnect: boolean = true): void {
-		this._readLogTimeout.abort('reset')
+	reset(options?: { reason?: string; doReconnect?: boolean; updateStatus?: boolean }): void {
+		if (typeof options === 'undefined')
+			options = {
+				reason: 'reset',
+				doReconnect: true,
+				updateStatus: true,
+			}
+		if (typeof options.reason === 'undefined') options.reason = 'reset'
+		if (typeof options.doReconnect === 'undefined') options.doReconnect = true
+		if (typeof options.updateStatus === 'undefined') options.updateStatus = true
+
+		this._lastUpdate = Date.now()
+		this._readLogTimeout.abort(options.reason)
+		this._readLogTimeout = new AbortController()
 		this._logStream?.close()
 		this._logStream = null
+
+		this._resetTimeout.abort(options.reason)
+		this._resetTimeout = new AbortController()
+
 		this.setVariableValues({
 			connected: false,
 			...defaultValues,
 		})
 		this.checkAllFeedbacks()
-		this.updateStatus(InstanceStatus.Disconnected, 'Connection Lost or Reset')
+		if (options.updateStatus) this.updateStatus(InstanceStatus.Disconnected, 'Connection Lost or Reset')
 
-		this._resetTimeout.abort('resetting module')
-		if (doReconnect) {
+		if (options.doReconnect) {
 			void timersPromises
 				// 1 second
 				.setTimeout(1e3, undefined, {
 					signal: this._resetTimeout.signal,
 				})
 				.then(() => {
-					this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
+					if (options.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
 					this._lastUpdate = Date.now()
 					this.startLogRead()
 				})
@@ -276,9 +294,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	#tick(): void {
 		const elapsed = (Date.now() - this._lastUpdate) / 1000
-		if (elapsed > 20) {
+		const timeout = 20
+		if (elapsed > timeout) {
 			this._lastUpdate = Date.now()
-			this.reset()
+			this.reset({
+				reason: `VRChat World did not respond to Midi Pings in the last ${timeout} seconds`,
+			})
 			return
 		}
 
@@ -327,7 +348,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	#setMidiNotReady(): void {
 		this.updateStatus(InstanceStatus.Disconnected, 'Midi not ready')
-		this.reset()
+		this.reset({
+			reason: 'Received Midi Not Ready event from world',
+		})
 	}
 
 	#parseFeedbackLog(base64Data: string): LogFeedbackResult[] {
@@ -509,7 +532,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			this._logStream.addListener('close', () => {
 				this.log('debug', 'logfile closed')
 				this._logStream = null
-				this.reset()
+				this.reset({
+					reason: 'Logfile Closed',
+				})
 			})
 			this._logStream.addListener('error', (e) => {
 				if (e.name === 'AbortError')
@@ -554,7 +579,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		if (logs.length === 0) {
 			this.updateStatus(InstanceStatus.ConnectionFailure, 'Cannot find logs')
-			this.reset()
+			this.reset({
+				reason: 'Could not find any Logfile',
+			})
 			return null
 		}
 
@@ -565,7 +592,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			return file
 		} catch {
 			this.updateStatus(InstanceStatus.ConnectionFailure, 'Failed to read logs')
-			this.reset()
+			this.reset({
+				reason: 'Failed top open Logfile',
+			})
 			return null
 		}
 	}
