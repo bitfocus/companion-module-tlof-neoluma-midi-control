@@ -409,89 +409,90 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			const logFile = await this.#findVRCLog()
 			if (logFile === null) return false
 
-			this._logStream = logFile
-				.createReadStream({
-					start: 0,
-				})
-				.addListener('data', (data) => {
-					const text = typeof data === 'string' ? data : data.toString('utf8')
-					// noinspection RegExpRedundantEscape
-					const messageMatches = this.config.useEditorLog
-						? Array.from(
-								text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
-							)
-						: Array.from(
-								text.matchAll(
-									/^[0-9]{4}\.(?:0[1-9]|1[0-2])\.(?:[012][0-9]|3[01]) (?:[01][0-9]|2[0-4]):(?:[0-5][0-9]|60|61):(?:[0-5][0-9]|60|61) (?:Debug|Warning|Error)\s*-\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm,
-								),
-							)
+			this._logStream = logFile.createReadStream({
+				start: 0,
+			})
 
-					if (messageMatches.length === 0) return
+			this._logStream.addListener('data', (data) => {
+				const text = typeof data === 'string' ? data : data.toString('utf8')
+				// noinspection RegExpRedundantEscape
+				const messageMatches = this.config.useEditorLog
+					? Array.from(
+							text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
+						)
+					: Array.from(
+							text.matchAll(
+								/^[0-9]{4}\.(?:0[1-9]|1[0-2])\.(?:[012][0-9]|3[01]) (?:[01][0-9]|2[0-4]):(?:[0-5][0-9]|60|61):(?:[0-5][0-9]|60|61) (?:Debug|Warning|Error)\s*-\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm,
+							),
+						)
 
-					const changes: { [variable: string]: number } = {}
-					for (const message of messageMatches) {
-						const type = message[1].trim()
-						if (type === 'Pong') {
-							this.log('debug', 'Received Pong Log')
-							this.#setMidiReady()
-						} else if (type === 'Ready') {
-							this.log('debug', 'Received Ready Log')
-							this.#setMidiReady()
-						} else if (type === 'Not Ready') {
-							this.log('debug', 'Received Not Ready Log')
-							this.#setMidiNotReady()
-						} else if (type.startsWith('[Feedback] ')) {
-							const base64Data = message[2]
-							const returnedValues = this.#parseFeedbackLog(base64Data)
+				if (messageMatches.length === 0) return
 
-							for (const returnedValue of returnedValues) {
-								changes[
-									returnedValue.mapping.name +
-										(returnedValue.extraDataOrSection >= 0
-											? '_' +
-												(returnedValue.extraDataOrSection >= 10
-													? returnedValue.extraDataOrSection
-													: '0' + returnedValue.extraDataOrSection)
-											: '')
-								] = returnedValue.data
+				const changes: { [variable: string]: number } = {}
+				for (const message of messageMatches) {
+					const type = message[1].trim()
+					if (type === 'Pong') {
+						this.log('debug', 'Received Pong Log')
+						this.#setMidiReady()
+					} else if (type === 'Ready') {
+						this.log('debug', 'Received Ready Log')
+						this.#setMidiReady()
+					} else if (type === 'Not Ready') {
+						this.log('debug', 'Received Not Ready Log')
+						this.#setMidiNotReady()
+					} else if (type.startsWith('[Feedback] ')) {
+						const base64Data = message[2]
+						const returnedValues = this.#parseFeedbackLog(base64Data)
 
-								if (
-									returnedValue.mapping.name === 'MidiFeedback' &&
-									returnedValue.data === 0 &&
-									returnedValue.control.velocity !== 'ALL'
-								) {
-									this.#sendMidiNoteOn(
-										returnedValue.control.channel,
-										returnedValue.control.number,
-										returnedValue.control.velocity,
-									) // Set midi feedback ON
-								} else if (
-									returnedValue.mapping.name === 'MidiLog' &&
-									returnedValue.data === 1 &&
-									returnedValue.control.velocity !== 'ALL'
-								) {
-									// this._SendMidiNoteOff(
-									// 	returnedValue.control.channel,
-									// 	returnedValue.control.number,
-									// 	returnedValue.control.velocity,
-									// ) // Set log received/processed OFF
-								}
+						for (const returnedValue of returnedValues) {
+							changes[
+								returnedValue.mapping.name +
+									(returnedValue.extraDataOrSection >= 0
+										? '_' +
+											(returnedValue.extraDataOrSection >= 10
+												? returnedValue.extraDataOrSection
+												: '0' + returnedValue.extraDataOrSection)
+										: '')
+							] = returnedValue.data
+
+							if (
+								returnedValue.mapping.name === 'MidiFeedback' &&
+								returnedValue.data === 0 &&
+								returnedValue.control.velocity !== 'ALL'
+							) {
+								this.#sendMidiNoteOn(
+									returnedValue.control.channel,
+									returnedValue.control.number,
+									returnedValue.control.velocity,
+								) // Set midi feedback ON
+							} else if (
+								returnedValue.mapping.name === 'MidiLog' &&
+								returnedValue.data === 1 &&
+								returnedValue.control.velocity !== 'ALL'
+							) {
+								// this._SendMidiNoteOff(
+								// 	returnedValue.control.channel,
+								// 	returnedValue.control.number,
+								// 	returnedValue.control.velocity,
+								// ) // Set log received/processed OFF
 							}
 						}
 					}
+				}
 
-					if (Object.keys(changes).length > 0) {
-						console.log(changes)
+				if (Object.keys(changes).length > 0) {
+					console.log(changes)
 
-						this.setVariableValues(changes)
-						for (const name of Object.keys(changes)) {
-							this.checkFeedbacks(name as keyof FeedbacksSchema)
-						}
-						this.checkAllFeedbacks()
+					this.setVariableValues(changes)
+					for (const name of Object.keys(changes)) {
+						this.checkFeedbacks(name as keyof FeedbacksSchema)
 					}
+					this.checkAllFeedbacks()
+				}
 
-					this._lastUpdate = Date.now()
-				})
+				this._lastUpdate = Date.now()
+			})
+			this._logStream.addListener('error', (e) => console.error(`Error during logfile read: ${e}`))
 
 			return true
 		} catch (err) {
