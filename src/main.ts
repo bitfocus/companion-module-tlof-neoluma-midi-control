@@ -41,6 +41,7 @@ type LogFeedbackResult = {
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	private _midiOutput: Output | null = null
+	private _inReset: boolean = false
 	private _logStream: ReadStream | null = null
 	private _lastUpdate: number
 	private _lastWatchdog: number
@@ -228,22 +229,29 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	reset(options?: { reason?: string; doReconnect?: boolean; updateStatus?: boolean }): void {
+	reset(options?: { reason?: string; closeLogfile?: boolean; doReconnect?: boolean; updateStatus?: boolean }): void {
+		if (this._inReset) return
+		this._inReset = true
+
 		if (typeof options === 'undefined')
 			options = {
 				reason: 'reset',
+				closeLogfile: true,
 				doReconnect: true,
 				updateStatus: true,
 			}
 		if (typeof options.reason === 'undefined') options.reason = 'reset'
+		if (typeof options.closeLogfile === 'undefined') options.closeLogfile = true
 		if (typeof options.doReconnect === 'undefined') options.doReconnect = true
 		if (typeof options.updateStatus === 'undefined') options.updateStatus = true
 
 		this._lastUpdate = Date.now()
-		this._readLogTimeout.abort(options.reason)
-		this._readLogTimeout = new AbortController()
-		this._logStream?.close()
-		this._logStream = null
+		if (options.closeLogfile) {
+			this._readLogTimeout.abort(options.reason)
+			this._readLogTimeout = new AbortController()
+			this._logStream?.close()
+			this._logStream = null
+		}
 
 		this._resetTimeout.abort(options.reason)
 		this._resetTimeout = new AbortController()
@@ -253,7 +261,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			...defaultValues,
 		})
 		this.checkAllFeedbacks()
-		if (options.updateStatus) this.updateStatus(InstanceStatus.Disconnected, 'Connection Lost or Reset')
+		if (options.updateStatus)
+			this.updateStatus(InstanceStatus.Disconnected, `Connection Lost or Reset - ${options.reason}`)
 
 		if (options.doReconnect) {
 			void timersPromises
@@ -273,6 +282,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					else this.log('error', `reconnection failed, due to error: ${e}`)
 				})
 		}
+
+		this._inReset = false
 	}
 
 	startLogRead(): void {
@@ -350,6 +361,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.updateStatus(InstanceStatus.Disconnected, 'Midi not ready')
 		this.reset({
 			reason: 'Received Midi Not Ready event from world',
+			closeLogfile: false,
 		})
 	}
 
@@ -438,11 +450,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		try {
 			const logFile = await this.#findVRCLog()
 			if (logFile === null) return false
+			const stat = await logFile.stat()
 
 			this._logStream = logFile.createReadStream({
 				encoding: 'utf8',
-				start: 0,
-				autoClose: true,
+				start: stat.size,
+				autoClose: false,
 				emitClose: true,
 				signal: this._readLogTimeout.signal,
 			})
@@ -541,6 +554,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					if (typeof e.cause === 'string') this.log('error', `logRead aborted, because: ${e.cause}`)
 					else this.log('error', `logRead aborted, because: ${e}`)
 				else this.log('error', `logRead failed, due to error: ${e}`)
+
+				this._logStream?.close()
 			})
 
 			return true
