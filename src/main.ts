@@ -463,19 +463,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		try {
 			if (this.config.useEditorLog) {
-				const vrcEditorPath =
-					os.platform() === 'win32'
-						? path.join(os.homedir(), 'AppData', 'Local', 'Unity', 'Editor', 'Editor.log')
-						: path.join(getXdgConfigHome(), 'unity3d', 'Editor.log')
 				return {
 					watcher: fs.watch(vrcEditorPath, options, callback),
 					file: await fsPromises.open(vrcEditorPath, 'r'),
 					path: vrcEditorPath,
 				}
 			} else {
-				const localLowPath =
-					os.platform() === 'win32' ? path.join(os.homedir(), 'AppData', 'LocalLow') : getXdgDataHome()
-				const vrcPath = path.join(localLowPath, 'VRChat', 'VRChat')
 				logs = await fsPromises.readdir(vrcPath).then((v) =>
 					v
 						.filter((f) => f.match(/^output_log_.*\.txt$/))
@@ -682,12 +675,19 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 }
 
-function getXdgConfigHome(): string {
-	return getXdgDir(process.env.XDG_CONFIG_HOME, path.join(os.homedir(), '.config'))
-}
-function getXdgDataHome(): string {
-	return getXdgDir(process.env.XDG_DATA_HOME, path.join(os.homedir(), '.local', 'share'))
-}
+const XdgConfigHome = getXdgDir(process.env.XDG_CONFIG_HOME, path.join(os.homedir(), '.config'))
+const XdgDataHome = getXdgDir(process.env.XDG_DATA_HOME, path.join(os.homedir(), '.local', 'share'))
+
+const vrcEditorPath =
+	os.platform() === 'win32'
+		? path.join(os.homedir(), 'AppData', 'Local', 'Unity', 'Editor', 'Editor.log')
+		: path.join(XdgConfigHome, 'unity3d', 'Editor.log')
+const vrcPath = path.join(
+	os.platform() === 'win32' ? path.join(os.homedir(), 'AppData', 'LocalLow') : XdgDataHome,
+	'VRChat',
+	'VRChat',
+)
+
 function getXdgDir(envValue: string | undefined, defaultValue: string): string {
 	if (typeof envValue !== 'undefined' && envValue.length > 0) return envValue
 	return defaultValue
