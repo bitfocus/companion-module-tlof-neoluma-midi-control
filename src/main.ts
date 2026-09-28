@@ -71,6 +71,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.reset({
 			reason: 'destroying module',
 			doReconnect: false,
+			closeLogfile: true,
+			ignoreInReset: true,
 		})
 		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
 		this.#watchdogInterval = null
