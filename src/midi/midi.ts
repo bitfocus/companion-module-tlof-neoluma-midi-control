@@ -1,11 +1,14 @@
 import * as node_midi from '@julusian/midi'
+import type ModuleInstance from '../main.js'
 
 export class Output {
 	private _output: node_midi.Output | null = null
 	public name: string
+	public readonly moduleInstance: ModuleInstance
 
-	constructor(name: string) {
+	constructor(name: string, moduleInstance: ModuleInstance) {
 		this.name = name
+		this.moduleInstance = moduleInstance
 
 		try {
 			this._output = new node_midi.Output()
@@ -17,7 +20,7 @@ export class Output {
 				}
 			}
 		} catch (err) {
-			console.log(`Error opening port ${name}.\nError: ${err}`)
+			this.moduleInstance.log('error', `Error opening port ${name}.\nError: ${err}`)
 			this._output?.closePort()
 			this._output = null
 		}
@@ -29,7 +32,7 @@ export class Output {
 			this._output.closePort()
 			this._output.destroy()
 		} catch (e) {
-			console.error(`Error whilst closing port: ${e}`)
+			this.moduleInstance.log('error', `Error whilst closing port: ${e}`)
 		}
 		this._output = null
 	}
@@ -39,7 +42,7 @@ export class Output {
 		try {
 			return this._output.isPortOpen()
 		} catch (e) {
-			console.error(`Error determining if port is open: ${e}`)
+			this.moduleInstance.log('error', `Error determining if port is open: ${e}`)
 			return false
 		}
 	}
@@ -50,7 +53,7 @@ export class Output {
 			this._output.sendMessage(bytes)
 			return true
 		} catch (e) {
-			console.error(`Error during sending Midi Message: ${e}`)
+			this.moduleInstance.log('error', `Error during sending Midi Message: ${e}`)
 			return false
 		}
 	}

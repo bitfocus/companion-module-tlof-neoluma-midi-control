@@ -90,7 +90,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#watchdogInterval = null
 
 		this.#midiOutput?.close()
-		this.#midiOutput = new Output(config.outPortName)
+		this.#midiOutput = new Output(config.outPortName, this)
 
 		const midiOutStatus = this.#midiOutput.isPortOpen()
 		this.log('info', `Selected Out Port "${this.#midiOutput.name}" is ${midiOutStatus ? '' : 'NOT '}Open.`)
