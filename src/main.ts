@@ -21,6 +21,7 @@ import type MappingData from './mapping/mapping_data.js'
 import type { SliderMappingData } from './mapping/mapping_data.js'
 import type { FileHandle } from 'node:fs/promises'
 import type { FSWatcher, WatchListener, WatchOptionsWithStringEncoding } from 'node:fs'
+import { VRC_EDITOR_PATH, VRC_PATH } from './logPaths.js'
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -464,15 +465,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		try {
 			if (this.config.useEditorLog) {
 				return {
-					watcher: fs.watch(vrcEditorPath, options, callback),
-					file: await fsPromises.open(vrcEditorPath, 'r'),
-					path: vrcEditorPath,
+					watcher: fs.watch(VRC_EDITOR_PATH, options, callback),
+					file: await fsPromises.open(VRC_EDITOR_PATH, 'r'),
+					path: VRC_EDITOR_PATH,
 				}
 			} else {
-				logs = await fsPromises.readdir(vrcPath).then((v) =>
+				logs = await fsPromises.readdir(VRC_PATH).then((v) =>
 					v
 						.filter((f) => f.match(/^output_log_.*\.txt$/))
-						.map((f) => path.join(vrcPath, f))
+						.map((f) => path.join(VRC_PATH, f))
 						.sort(),
 				)
 			}
@@ -673,22 +674,4 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 		return result
 	}
-}
-
-const XdgConfigHome = getXdgDir(process.env.XDG_CONFIG_HOME, path.join(os.homedir(), '.config'))
-const XdgDataHome = getXdgDir(process.env.XDG_DATA_HOME, path.join(os.homedir(), '.local', 'share'))
-
-const vrcEditorPath =
-	os.platform() === 'win32'
-		? path.join(os.homedir(), 'AppData', 'Local', 'Unity', 'Editor', 'Editor.log')
-		: path.join(XdgConfigHome, 'unity3d', 'Editor.log')
-const vrcPath = path.join(
-	os.platform() === 'win32' ? path.join(os.homedir(), 'AppData', 'LocalLow') : XdgDataHome,
-	'VRChat',
-	'VRChat',
-)
-
-function getXdgDir(envValue: string | undefined, defaultValue: string): string {
-	if (typeof envValue !== 'undefined' && envValue.length > 0) return envValue
-	return defaultValue
 }
