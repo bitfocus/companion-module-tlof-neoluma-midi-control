@@ -396,14 +396,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			})
 
 			if (ret === null) return false
-			const startSize = await ret.file
+			let position = await ret.file
 				.stat({
 					bigint: true,
 				})
 				.then((v) => v.size)
 
 			this.#log = true
-			let position = startSize
 
 			ret.watcher
 				.on('change', (eventType) => {
