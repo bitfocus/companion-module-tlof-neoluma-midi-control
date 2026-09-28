@@ -139,6 +139,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	start(): void {
 		this.#resetTimeout.abort('module started')
+		this.#resetTimeout = new AbortController()
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
 		this.#lastUpdate = Date.now()
