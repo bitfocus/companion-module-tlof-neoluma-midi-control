@@ -12,7 +12,7 @@ export class Output {
 
 		try {
 			this._output = new node_midi.Output()
-			const outputPortNumberedNames: string[] = getOutputs(this._output)
+			const outputPortNumberedNames: string[] = getOutputs(this.moduleInstance, this._output)
 			for (let i = 0; i < outputPortNumberedNames.length; i++) {
 				if (name === outputPortNumberedNames[i]) {
 					this._output.openPort(i)
@@ -59,7 +59,7 @@ export class Output {
 	}
 }
 
-export function getOutputs(output?: node_midi.Output): string[] {
+export function getOutputs(self: ModuleInstance, output?: node_midi.Output): string[] {
 	if (!output) {
 		try {
 			output = new node_midi.Output()
@@ -80,7 +80,7 @@ export function getOutputs(output?: node_midi.Output): string[] {
 			outputs.push(numberedPortName)
 		}
 	} catch (err) {
-		console.error(err)
+		self.log('error', `Failed to get Midi Outputs: ${err}`)
 	}
 	return outputs
 }

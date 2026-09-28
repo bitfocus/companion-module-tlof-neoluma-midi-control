@@ -1,14 +1,15 @@
 import { type DropdownChoice, type SomeCompanionConfigField } from '@companion-module/base'
 import { getOutputs } from './midi/midi.js'
+import type ModuleInstance from './main.js'
 
 export type ModuleConfig = {
 	outPortName: string
 	useEditorLog: boolean
 }
 
-export function GetConfigFields(): SomeCompanionConfigField[] {
+export function GetConfigFields(self: ModuleInstance): SomeCompanionConfigField[] {
 	const outPortNames: DropdownChoice[] = []
-	const outPorts = getOutputs()
+	const outPorts = getOutputs(self)
 	outPorts.forEach((m) => {
 		outPortNames.push({ id: m, label: m })
 	})

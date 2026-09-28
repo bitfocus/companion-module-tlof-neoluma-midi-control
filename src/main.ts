@@ -116,7 +116,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	getConfigFields(): SomeCompanionConfigField[] {
-		return GetConfigFields()
+		return GetConfigFields(this)
 	}
 
 	updateActions(): void {
@@ -578,7 +578,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 
 		if (Object.keys(changes).length > 0) {
-			console.log(changes)
+			this.log(
+				'debug',
+				'Feedback changes: \n' +
+					Object.entries(changes)
+						.map((entry) => {
+							const [key, value] = entry
+							return `\t${key}: ${value}`
+						})
+						.join('\n'),
+			)
 
 			this.setVariableValues(changes)
 			for (const name of Object.keys(changes)) {
