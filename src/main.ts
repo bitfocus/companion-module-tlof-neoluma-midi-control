@@ -43,7 +43,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	#midiOutput: Output | null = null
 	#inReset: boolean = false
-	#log: boolean = false
+	#isReadingLog: boolean = false
 	#lastUpdate: number
 	#lastWatchdog: number
 	#watchdogInterval: NodeJS.Timeout | null = null
@@ -321,7 +321,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	isLogRead(): boolean {
-		return this.#log
+		return this.#isReadingLog
 	}
 
 	#tick(): void {
@@ -402,7 +402,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				})
 				.then((v) => v.size)
 
-			this.#log = true
+			this.#isReadingLog = true
 
 			ret.watcher
 				.on('change', (eventType) => {
@@ -430,7 +430,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					}
 				})
 				.on('close', () => {
-					this.#log = false
+					this.#isReadingLog = false
 					this.reset({
 						reason: 'LogWatcher closed',
 					})
@@ -445,7 +445,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 			return true
 		} catch (err) {
-			this.#log = false
+			this.#isReadingLog = false
 			this.reset({
 				reason: 'error whilst starting LogReading',
 				closeLogfile: true,
