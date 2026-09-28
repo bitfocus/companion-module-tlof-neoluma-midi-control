@@ -97,7 +97,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#watchdogInterval = null
 
 		this.#midiOutput?.close()
-		this.#midiOutput = new Output(config.outPortName, this)
+		this.#midiOutput = new Output(config.outPortName)
 
 		const midiOutStatus = this.#midiOutput.isPortOpen()
 		this.log('info', `Selected Out Port "${this.#midiOutput.name}" is ${midiOutStatus ? '' : 'NOT '}Open.`)
@@ -118,7 +118,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	getConfigFields(): SomeCompanionConfigField[] {
-		return GetConfigFields(this)
+		return GetConfigFields()
 	}
 
 	updateActions(): void {
