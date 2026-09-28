@@ -6,6 +6,7 @@ import { UpdateActions, type ActionsSchema } from './actions.js'
 import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
 import { UpdatePresets } from './presets.js'
 import { Output } from './midi/midi.js'
+import fs from 'fs'
 import fsPromises from 'fs/promises'
 import timersPromises from 'timers/promises'
 import path from 'path'
@@ -19,7 +20,7 @@ import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mapp
 import type MappingData from './mapping/mapping_data.js'
 import type { SliderMappingData } from './mapping/mapping_data.js'
 import type { FileHandle } from 'node:fs/promises'
-import type { ReadStream } from 'node:fs'
+import type { FSWatcher, WatchListener, WatchOptionsWithStringEncoding } from 'node:fs'
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -42,7 +43,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	#midiOutput: Output | null = null
 	#inReset: boolean = false
-	#logStream: ReadStream | null = null
+	#log: boolean = false
 	#lastUpdate: number
 	#lastWatchdog: number
 	#watchdogInterval: NodeJS.Timeout | null = null
@@ -83,9 +84,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
-		this.#resetTimeout.abort('config updated')
-		this.#resetTimeout = new AbortController()
-		this.#stopLogRead()
+		this.reset({
+			reason: 'config updated',
+			closeLogfile: false,
+			doReconnect: false,
+			ignoreInReset: true,
+		})
+
 		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
 		this.#watchdogInterval = null
 
@@ -97,6 +102,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		if (!midiOutStatus) {
 			this.updateStatus(InstanceStatus.BadConfig, 'MIDI Out Port not open')
+			this.reset({
+				reason: 'MIDI Out Port not open',
+				closeLogfile: true,
+				doReconnect: false,
+				updateStatus: false,
+				ignoreInReset: true,
+			})
 			return
 		}
 
@@ -125,7 +137,6 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	start(): void {
 		this.#resetTimeout.abort('module started')
-		this.#resetTimeout = new AbortController()
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
 		this.#lastUpdate = Date.now()
@@ -228,24 +239,30 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	reset(options?: { reason?: string; closeLogfile?: boolean; doReconnect?: boolean; updateStatus?: boolean }): void {
+	reset(options?: {
+		reason?: string
+		closeLogfile?: boolean
+		doReconnect?: boolean
+		updateStatus?: boolean
+		ignoreInReset?: boolean
+	}): void {
 		const defaultOptions = {
 			reason: 'reset',
 			closeLogfile: true,
 			doReconnect: true,
 			updateStatus: true,
+			ignoreInReset: false,
 		}
-
-		if (this.#inReset) return
-		this.#inReset = true
-
 		const parsedOptions = { ...defaultOptions, ...(options ?? {}) }
+
+		//This prevents simple reset loops, such as a reset aborting the logReader, which will also call reset on close
+		if (!parsedOptions.ignoreInReset && this.#inReset) return
+		this.#inReset = true
 
 		this.#lastUpdate = Date.now()
 		if (parsedOptions.closeLogfile) {
 			this.#readLogTimeout.abort(parsedOptions.reason)
 			this.#readLogTimeout = new AbortController()
-			this.#stopLogRead()
 		}
 
 		this.#resetTimeout.abort(parsedOptions.reason)
@@ -259,29 +276,31 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (parsedOptions.updateStatus)
 			this.updateStatus(InstanceStatus.Disconnected, `Connection Lost or Reset - ${parsedOptions.reason}`)
 
-		if (parsedOptions.doReconnect) {
-			void timersPromises
-				// 1 second
-				.setTimeout(1e3, undefined, {
-					signal: this.#resetTimeout.signal,
-				})
-				.then(() => {
-					if (parsedOptions.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
-					this.#lastUpdate = Date.now()
-					this.#startLogRead()
-				})
-				.catch((e) => {
-					if (e.name === 'AbortError')
-						if (typeof e.cause === 'string') this.log('error', `reconnection aborted, because: ${e.cause}`)
-						else this.log('error', `reconnection aborted, because: ${e.cause}`)
-					else this.log('error', `reconnection failed, due to error: ${e}`)
-				})
-		}
-
-		this.#inReset = false
+		void timersPromises
+			// 1 second
+			.setTimeout(1e3, undefined, {
+				signal: this.#resetTimeout.signal,
+			})
+			.then(() => {
+				if (!parsedOptions.doReconnect) return
+				if (parsedOptions.updateStatus) this.updateStatus(InstanceStatus.Connecting, 'Connecting after reset')
+				this.#lastUpdate = Date.now()
+				this.#startLogRead()
+			})
+			.catch((e) => {
+				if (e.name === 'AbortError')
+					if (typeof e.cause === 'string') this.log('info', `reconnection aborted, because: ${e.cause}`)
+					else this.log('info', `reconnection aborted, because: ${e.cause}`)
+				else this.log('error', `reconnection failed, due to error: ${e}`)
+			})
+			.finally(() => {
+				this.#inReset = false
+			})
 	}
 
 	#startLogRead(): void {
+		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return
+
 		void timersPromises
 			.setImmediate(undefined, {
 				signal: this.#readLogTimeout.signal,
@@ -292,18 +311,14 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			})
 			.catch((e) => {
 				if (e.name === 'AbortError')
-					if (typeof e.cause === 'string') this.log('error', `logRead aborted, because: ${e.cause}`)
-					else this.log('error', `reconnection aborted, because: ${e.cause}`)
+					if (typeof e.cause === 'string') this.log('info', `logRead aborted, because: ${e.cause}`)
+					else this.log('info', `reconnection aborted, because: ${e.cause}`)
 				else this.log('error', `reconnection failed, due to error: ${e}`)
 			})
 	}
 
-	#stopLogRead(): void {
-		if (this.#logStream === null) return
-		this.#logStream.close()
-		this.#logStream.push(null)
-		this.#logStream.read(0)
-		this.#logStream = null
+	isLogRead(): boolean {
+		return this.#log
 	}
 
 	#tick(): void {
@@ -343,13 +358,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	#midiPing(): void {
-		if (this.#logStream === null || !this.#midiOutput?.isPortOpen()) return
+		if (!this.isLogRead() || !this.#midiOutput?.isPortOpen()) return
 		this.log('debug', 'Sending MidiPing')
 		this.#sendMidiNoteOn(0, 1, 20) // Ping
 	}
 
 	#setMidiReady(): void {
-		if (!this.getVariableValue('connected')) {
+		if (this.getVariableValue('connected') !== true) {
 			this.setVariableValues({ connected: true })
 			this.checkFeedbacks('connected')
 			this.updateStatus(InstanceStatus.Ok)
@@ -366,6 +381,213 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			reason: 'Received Midi Not Ready event from world',
 			closeLogfile: false,
 		})
+	}
+
+	async #readLogs(): Promise<boolean> {
+		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
+		try {
+			const ret = await this.#findVRCLog({
+				encoding: 'utf8',
+				persistent: false,
+				signal: this.#readLogTimeout.signal,
+			})
+
+			if (ret === null) return false
+			const startSize = await ret.file
+				.stat({
+					bigint: true,
+				})
+				.then((v) => v.size)
+
+			this.#log = true
+			let position = startSize
+
+			ret.watcher
+				.on('change', (eventType) => {
+					switch (eventType) {
+						case 'rename':
+							this.log('info', 'VRChat LogFile was deleted, moved or renamed.')
+							ret.watcher.close()
+							break
+						case 'change':
+							void ret.file
+								.read({
+									position,
+								})
+								.then((e) => {
+									position += BigInt(e.bytesRead)
+									this.#processLogFile(e.buffer.toString('utf8', 0, e.bytesRead))
+								})
+								.catch((e) => {
+									this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
+									ret.watcher.close()
+								})
+							break
+						default:
+							break
+					}
+				})
+				.on('close', () => {
+					this.#log = false
+					this.reset({
+						reason: 'LogWatcher closed',
+					})
+				})
+				.on('error', (e) => {
+					if (e.name === 'AbortError')
+						if (typeof e.cause === 'string') this.log('info', `logWatch aborted, because: ${e.cause}`)
+						else this.log('info', `logWatch aborted, because: ${e}`)
+					else this.log('error', `logWatch failed, due to error: ${e}`)
+					ret.watcher.close()
+				})
+
+			return true
+		} catch (err) {
+			this.#log = false
+			this.reset({
+				reason: 'error whilst starting LogReading',
+				closeLogfile: true,
+			})
+			this.log('warn', `Error reading logs: ${err}`)
+			return false
+		}
+	}
+
+	async #findVRCLog(
+		options: WatchOptionsWithStringEncoding,
+		callback?: WatchListener<string>,
+	): Promise<{ watcher: FSWatcher; file: FileHandle; path: string } | null> {
+		let logs: string[] = []
+
+		try {
+			if (this.config.useEditorLog) {
+				const vrcEditorPath =
+					os.platform() === 'win32'
+						? path.join(os.homedir(), 'AppData', 'Local', 'Unity', 'Editor', 'Editor.log')
+						: path.join(getXdgConfigHome(), 'unity3d', 'Editor.log')
+				return {
+					watcher: fs.watch(vrcEditorPath, options, callback),
+					file: await fsPromises.open(vrcEditorPath, 'r'),
+					path: vrcEditorPath,
+				}
+			} else {
+				const localLowPath =
+					os.platform() === 'win32' ? path.join(os.homedir(), 'AppData', 'LocalLow') : getXdgDataHome()
+				const vrcPath = path.join(localLowPath, 'VRChat', 'VRChat')
+				logs = await fsPromises.readdir(vrcPath).then((v) =>
+					v
+						.filter((f) => f.match(/^output_log_.*\.txt$/))
+						.map((f) => path.join(vrcPath, f))
+						.sort(),
+				)
+			}
+		} catch (err) {
+			this.log('error', `Error finding logs: ${err}`)
+		}
+
+		if (logs.length === 0) {
+			this.updateStatus(InstanceStatus.ConnectionFailure, 'Cannot find logs')
+			this.reset({
+				reason: 'Could not find any Logfile',
+			})
+			return null
+		}
+
+		const latest = logs[logs.length - 1]
+		try {
+			const file = {
+				watcher: fs.watch(latest, options, callback),
+				file: await fsPromises.open(latest, 'r'),
+				path: latest,
+			}
+			this.log('debug', `Watching log: ${latest.replace(os.homedir(), '$HOME')}`)
+			return file
+		} catch {
+			this.updateStatus(InstanceStatus.ConnectionFailure, 'Failed to read logs')
+			this.reset({
+				reason: 'Failed top open Logfile',
+			})
+			return null
+		}
+	}
+
+	#processLogFile(text: string): void {
+		// noinspection RegExpRedundantEscape
+		const messageMatches = this.config.useEditorLog
+			? Array.from(
+					text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
+				)
+			: Array.from(
+					text.matchAll(
+						/^[0-9]{4}\.(?:0[1-9]|1[0-2])\.(?:[012][0-9]|3[01]) (?:[01][0-9]|2[0-4]):(?:[0-5][0-9]|60|61):(?:[0-5][0-9]|60|61) (?:Debug|Warning|Error)\s*-\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm,
+					),
+				)
+
+		if (messageMatches.length === 0) return
+
+		const changes: { [variable: string]: number } = {}
+		for (const message of messageMatches) {
+			const type = message[1].trim()
+			if (type === 'Pong') {
+				this.log('debug', 'Received Pong Log')
+				this.#setMidiReady()
+			} else if (type === 'Ready') {
+				this.log('debug', 'Received Ready Log')
+				this.#setMidiReady()
+			} else if (type === 'Not Ready') {
+				this.log('debug', 'Received Not Ready Log')
+				this.#setMidiNotReady()
+			} else if (type.startsWith('[Feedback] ')) {
+				const base64Data = message[2]
+				const returnedValues = this.#parseFeedbackLog(base64Data)
+
+				for (const returnedValue of returnedValues) {
+					changes[
+						returnedValue.mapping.name +
+							(returnedValue.extraDataOrSection >= 0
+								? '_' +
+									(returnedValue.extraDataOrSection >= 10
+										? returnedValue.extraDataOrSection
+										: '0' + returnedValue.extraDataOrSection)
+								: '')
+					] = returnedValue.data
+
+					if (
+						returnedValue.mapping.name === 'MidiFeedback' &&
+						returnedValue.data === 0 &&
+						returnedValue.control.velocity !== 'ALL'
+					) {
+						this.#sendMidiNoteOn(
+							returnedValue.control.channel,
+							returnedValue.control.number,
+							returnedValue.control.velocity,
+						) // Set midi feedback ON
+					} else if (
+						returnedValue.mapping.name === 'MidiLog' &&
+						returnedValue.data === 1 &&
+						returnedValue.control.velocity !== 'ALL'
+					) {
+						// this._SendMidiNoteOff(
+						// 	returnedValue.control.channel,
+						// 	returnedValue.control.number,
+						// 	returnedValue.control.velocity,
+						// ) // Set log received/processed OFF
+					}
+				}
+			}
+		}
+
+		if (Object.keys(changes).length > 0) {
+			console.log(changes)
+
+			this.setVariableValues(changes)
+			for (const name of Object.keys(changes)) {
+				this.checkFeedbacks(name as keyof FeedbacksSchema)
+			}
+			this.checkAllFeedbacks()
+		}
+
+		this.#lastUpdate = Date.now()
 	}
 
 	#parseFeedbackLog(base64Data: string): LogFeedbackResult[] {
@@ -447,177 +669,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 		return result
 	}
+}
 
-	async #readLogs(): Promise<boolean> {
-		if (this.#logStream !== null || !this.#midiOutput?.isPortOpen()) return false
-		try {
-			const logFile = await this.#findVRCLog()
-			if (logFile === null) return false
-			const stat = await logFile.stat()
-
-			this.#logStream = logFile.createReadStream({
-				encoding: 'utf8',
-				start: stat.size,
-				autoClose: false,
-				emitClose: true,
-				signal: this.#readLogTimeout.signal,
-				highWaterMark: 1024, //don't chunk too much
-			})
-
-			this.#logStream.addListener('data', (data) => {
-				this.log('debug', 'received data from logfile')
-				const lastNewline = data.lastIndexOf('\n')
-				if (lastNewline < 0) return
-				if (lastNewline < data.length) this.#logStream?.unshift(data.slice(lastNewline + 1), 'utf8')
-				const text = typeof data === 'string' ? data.slice(0, lastNewline) : data.toString('utf8', 0, lastNewline)
-				this.log('debug', `received ${text.length} characters`)
-				// noinspection RegExpRedundantEscape
-				const messageMatches = this.config.useEditorLog
-					? Array.from(
-							text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
-						)
-					: Array.from(
-							text.matchAll(
-								/^[0-9]{4}\.(?:0[1-9]|1[0-2])\.(?:[012][0-9]|3[01]) (?:[01][0-9]|2[0-4]):(?:[0-5][0-9]|60|61):(?:[0-5][0-9]|60|61) (?:Debug|Warning|Error)\s*-\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm,
-							),
-						)
-
-				if (messageMatches.length === 0) return
-
-				const changes: { [variable: string]: number } = {}
-				for (const message of messageMatches) {
-					const type = message[1].trim()
-					if (type === 'Pong') {
-						this.log('debug', 'Received Pong Log')
-						this.#setMidiReady()
-					} else if (type === 'Ready') {
-						this.log('debug', 'Received Ready Log')
-						this.#setMidiReady()
-					} else if (type === 'Not Ready') {
-						this.log('debug', 'Received Not Ready Log')
-						this.#setMidiNotReady()
-					} else if (type.startsWith('[Feedback] ')) {
-						const base64Data = message[2]
-						const returnedValues = this.#parseFeedbackLog(base64Data)
-
-						for (const returnedValue of returnedValues) {
-							changes[
-								returnedValue.mapping.name +
-									(returnedValue.extraDataOrSection >= 0
-										? '_' +
-											(returnedValue.extraDataOrSection >= 10
-												? returnedValue.extraDataOrSection
-												: '0' + returnedValue.extraDataOrSection)
-										: '')
-							] = returnedValue.data
-
-							if (
-								returnedValue.mapping.name === 'MidiFeedback' &&
-								returnedValue.data === 0 &&
-								returnedValue.control.velocity !== 'ALL'
-							) {
-								this.#sendMidiNoteOn(
-									returnedValue.control.channel,
-									returnedValue.control.number,
-									returnedValue.control.velocity,
-								) // Set midi feedback ON
-							} else if (
-								returnedValue.mapping.name === 'MidiLog' &&
-								returnedValue.data === 1 &&
-								returnedValue.control.velocity !== 'ALL'
-							) {
-								// this._SendMidiNoteOff(
-								// 	returnedValue.control.channel,
-								// 	returnedValue.control.number,
-								// 	returnedValue.control.velocity,
-								// ) // Set log received/processed OFF
-							}
-						}
-					}
-				}
-
-				if (Object.keys(changes).length > 0) {
-					console.log(changes)
-
-					this.setVariableValues(changes)
-					for (const name of Object.keys(changes)) {
-						this.checkFeedbacks(name as keyof FeedbacksSchema)
-					}
-					this.checkAllFeedbacks()
-				}
-
-				this.#lastUpdate = Date.now()
-			})
-			this.#logStream.addListener('close', () => {
-				this.log('debug', 'logfile closed')
-				this.#logStream = null
-				this.reset({
-					reason: 'Logfile Closed',
-				})
-			})
-			this.#logStream.addListener('error', (e) => {
-				if (e.name === 'AbortError')
-					if (typeof e.cause === 'string') this.log('error', `logRead aborted, because: ${e.cause}`)
-					else this.log('error', `logRead aborted, because: ${e}`)
-				else this.log('error', `logRead failed, due to error: ${e}`)
-
-				this.#logStream?.close()
-			})
-			this.#logStream.resume()
-
-			return true
-		} catch (err) {
-			this.log('warn', `Error reading logs: ${err}`)
-			return false
-		}
-	}
-
-	async #findVRCLog(): Promise<FileHandle | null> {
-		let logs: string[] = []
-
-		try {
-			if (this.config.useEditorLog) {
-				const vrcEditorPath =
-					os.platform() === 'win32'
-						? path.join(os.homedir(), 'AppData', 'Local', 'Unity', 'Editor', 'Editor.log')
-						: path.join(os.homedir(), '.config', 'unity3d', 'Editor.log') // Assume XDG defaults
-				return await fsPromises.open(vrcEditorPath, 'r')
-			} else {
-				const localLowPath =
-					os.platform() === 'win32'
-						? path.join(os.homedir(), 'AppData', 'LocalLow')
-						: path.join(os.homedir(), '.local', 'share') // Assume XDG defaults
-				const vrcPath = path.join(localLowPath, 'VRChat', 'VRChat')
-				logs = await fsPromises.readdir(vrcPath).then((v) =>
-					v
-						.filter((f) => f.match(/^output_log_.*\.txt$/))
-						.map((f) => path.join(vrcPath, f))
-						.sort(),
-				)
-			}
-		} catch (err) {
-			this.log('error', `Error finding logs: ${err}`)
-		}
-
-		if (logs.length === 0) {
-			this.updateStatus(InstanceStatus.ConnectionFailure, 'Cannot find logs')
-			this.reset({
-				reason: 'Could not find any Logfile',
-			})
-			return null
-		}
-
-		const latest = logs[logs.length - 1]
-		try {
-			const file = await fsPromises.open(latest)
-			this.log('debug', `Watching log: ${latest.replace(os.homedir(), '$HOME')}`)
-			return file
-		} catch {
-			this.updateStatus(InstanceStatus.ConnectionFailure, 'Failed to read logs')
-			this.reset({
-				reason: 'Failed top open Logfile',
-			})
-			return null
-		}
-	}
+function getXdgConfigHome(): string {
+	return getXdgDir(process.env.XDG_CONFIG_HOME, path.join(os.homedir(), '.config'))
+}
+function getXdgDataHome(): string {
+	return getXdgDir(process.env.XDG_DATA_HOME, path.join(os.homedir(), '.local', 'share'))
+}
+function getXdgDir(envValue: string | undefined, defaultValue: string): string {
+	if (typeof envValue !== 'undefined' && envValue.length > 0) return envValue
+	return defaultValue
 }
