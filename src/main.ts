@@ -429,19 +429,18 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 									const sizeDiff = newSize - position
 									const length = sizeDiff > Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : Number(sizeDiff)
 									//If we ever need to read more than this, we'll probably run out of memory before everything gets read.
-									await newRet.file
-										.read({
-											length,
-											position,
-										})
-										.then((e) => {
-											const buffer = e.buffer.subarray(0, e.bytesRead)
-											const index = buffer.lastIndexOf('\n')
-											if (index < 0) return
-											position += BigInt(e.bytesRead - index)
+									return await newRet.file.read({
+										length,
+										position,
+									})
+								})
+								.then((e) => {
+									const buffer = e.buffer.subarray(0, e.bytesRead)
+									const index = buffer.lastIndexOf('\n')
+									if (index < 0) return
+									position += BigInt(index + 1)
 
-											this.#processLogFile(buffer.toString('utf8', 0, index + 1))
-										})
+									this.#processLogFile(buffer.toString('utf8', 0, index + 1))
 								})
 								.catch((e) => {
 									this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
