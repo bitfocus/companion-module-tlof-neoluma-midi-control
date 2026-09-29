@@ -315,10 +315,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				this.#midiPing()
 			})
 			.catch((e) => {
-				if (e.name === 'AbortError')
+				if (e.name === 'AbortError') {
 					if (typeof e.cause === 'string') this.log('info', `logRead aborted, because: ${e.cause}`)
 					else this.log('info', `reconnection aborted, because: ${e.cause}`)
-				else this.log('error', `reconnection failed, due to error: ${e}`)
+				} else this.log('error', `reconnection failed, due to error: ${e}`)
 			})
 	}
 
@@ -445,10 +445,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					})
 				})
 				.on('error', (e) => {
-					if (e.name === 'AbortError')
+					if (e.name === 'AbortError') {
 						if (typeof e.cause === 'string') this.log('info', `logWatch aborted, because: ${e.cause}`)
 						else this.log('info', `logWatch aborted, because: ${e}`)
-					else this.log('error', `logWatch failed, due to error: ${e}`)
+					} else this.log('error', `logWatch failed, due to error: ${e}`)
 					newRet.watcher.close()
 				})
 
