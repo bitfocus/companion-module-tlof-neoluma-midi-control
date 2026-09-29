@@ -431,6 +431,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					}
 				})
 				.on('close', () => {
+					void ret.file.close().catch((e) => {
+						this.log('error', `failed to close LogFile: ${e}`)
+					})
 					this.#isReadingLog = false
 					this.reset({
 						reason: 'LogWatcher closed',
@@ -501,7 +504,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		} catch {
 			this.updateStatus(InstanceStatus.ConnectionFailure, 'Failed to read logs')
 			this.reset({
-				reason: 'Failed top open Logfile',
+				reason: 'Failed to open Logfile',
 			})
 			return null
 		}
