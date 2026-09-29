@@ -270,6 +270,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 
 		this.#resetTimeout.abort(parsedOptions.reason)
+		const oldResetController = this.#resetTimeout
 		this.#resetTimeout = new AbortController()
 
 		this.setVariableValues({
@@ -298,7 +299,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				else this.log('error', `reconnection failed, due to error: ${e}`)
 			})
 			.finally(() => {
-				this.#inReset = false
+				if (oldResetController == this.#resetTimeout) this.#inReset = false
 			})
 	}
 
