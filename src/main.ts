@@ -419,7 +419,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 							newRet.watcher.close()
 							break
 						case 'change':
-							if (!isReading) isReading = true
+							if (isReading) return
+							isReading = true
 							void newRet.file
 								.stat({
 									bigint: true,
