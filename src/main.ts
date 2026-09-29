@@ -420,11 +420,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 						case 'change':
 							void newRet.file
 								.read({
+									length: Number.MAX_SAFE_INTEGER,
 									position,
 								})
 								.then((e) => {
-									position += BigInt(e.bytesRead)
-									this.#processLogFile(e.buffer.toString('utf8', 0, e.bytesRead))
+									const buffer = e.buffer.subarray(0, e.bytesRead)
+									const index = buffer.lastIndexOf('\n')
+									if (index < 0) return
+									position += BigInt(e.bytesRead - index)
+
+									this.#processLogFile(buffer.toString('utf8', 0, index + 1))
 								})
 								.catch((e) => {
 									this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
