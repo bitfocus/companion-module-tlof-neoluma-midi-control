@@ -392,6 +392,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
 		let ret = null
 		let isReading = false
+		let pending = false
 		let position = BigInt(0)
 		try {
 			ret = await this.#findVRCLog({
@@ -413,43 +414,54 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 			newRet.watcher
 				.on('change', (eventType) => {
+					const read = async () => {
+						if (isReading) {
+							pending = true
+							return
+						}
+						isReading = true
+						newRet.file
+							.stat({
+								bigint: true,
+							})
+							.then(async (stat) => {
+								pending = false
+								const newSize = stat.size
+								const sizeDiff = newSize - position
+								const length = sizeDiff > Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : Number(sizeDiff)
+								if (length == 0) return null
+								//If we ever need to read more than this, we'll probably run out of memory before everything gets read.
+								return await newRet.file.read({
+									length,
+									position,
+								})
+							})
+							.then((e) => {
+								if (e === null) return
+								const buffer = e.buffer.subarray(0, e.bytesRead)
+								const index = buffer.lastIndexOf('\n')
+								if (index < 0) return
+								position += BigInt(index + 1)
+
+								this.#processLogFile(buffer.toString('utf8', 0, index + 1))
+							})
+							.then(async () => {
+								isReading = false
+								if (pending) await read()
+							})
+							.catch((e) => {
+								isReading = false
+								this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
+								newRet.watcher.close()
+							})
+					}
 					switch (eventType) {
 						case 'rename':
 							this.log('info', 'VRChat LogFile was deleted, moved or renamed.')
 							newRet.watcher.close()
 							break
 						case 'change':
-							if (isReading) return
-							isReading = true
-							void newRet.file
-								.stat({
-									bigint: true,
-								})
-								.then(async (stat) => {
-									const newSize = stat.size
-									const sizeDiff = newSize - position
-									const length = sizeDiff > Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : Number(sizeDiff)
-									//If we ever need to read more than this, we'll probably run out of memory before everything gets read.
-									return await newRet.file.read({
-										length,
-										position,
-									})
-								})
-								.then((e) => {
-									const buffer = e.buffer.subarray(0, e.bytesRead)
-									const index = buffer.lastIndexOf('\n')
-									if (index < 0) return
-									position += BigInt(index + 1)
-
-									this.#processLogFile(buffer.toString('utf8', 0, index + 1))
-								})
-								.catch((e) => {
-									this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
-									newRet.watcher.close()
-								})
-								.finally(() => {
-									isReading = false
-								})
+							void read()
 							break
 						default:
 							break
