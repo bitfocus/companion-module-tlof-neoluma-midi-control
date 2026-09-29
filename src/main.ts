@@ -389,15 +389,19 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	async #readLogs(): Promise<boolean> {
 		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
+		let ret = null
+		let position = BigInt(0)
 		try {
-			const ret = await this.#findVRCLog({
+			ret = await this.#findVRCLog({
 				encoding: 'utf8',
 				persistent: false,
 				signal: this.#readLogTimeout.signal,
 			})
 
 			if (ret === null) return false
-			let position = await ret.file
+			const newRet = ret
+
+			position = await ret.file
 				.stat({
 					bigint: true,
 				})
@@ -405,15 +409,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 			this.#isReadingLog = true
 
-			ret.watcher
+			newRet.watcher
 				.on('change', (eventType) => {
 					switch (eventType) {
 						case 'rename':
 							this.log('info', 'VRChat LogFile was deleted, moved or renamed.')
-							ret.watcher.close()
+							newRet.watcher.close()
 							break
 						case 'change':
-							void ret.file
+							void newRet.file
 								.read({
 									position,
 								})
@@ -423,7 +427,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 								})
 								.catch((e) => {
 									this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
-									ret.watcher.close()
+									newRet.watcher.close()
 								})
 							break
 						default:
@@ -431,7 +435,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					}
 				})
 				.on('close', () => {
-					void ret.file.close().catch((e) => {
+					void newRet.file.close().catch((e) => {
 						this.log('error', `failed to close LogFile: ${e}`)
 					})
 					this.#isReadingLog = false
@@ -444,11 +448,17 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 						if (typeof e.cause === 'string') this.log('info', `logWatch aborted, because: ${e.cause}`)
 						else this.log('info', `logWatch aborted, because: ${e}`)
 					else this.log('error', `logWatch failed, due to error: ${e}`)
-					ret.watcher.close()
+					newRet.watcher.close()
 				})
 
 			return true
 		} catch (err) {
+			try {
+				ret?.watcher.close()
+				await ret?.file.close()
+			} catch (err) {
+				this.log('error', `failed to close LogFile: ${err}`)
+			}
 			this.#isReadingLog = false
 			this.reset({
 				reason: 'error whilst starting LogReading',
