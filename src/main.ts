@@ -391,6 +391,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	async #readLogs(): Promise<boolean> {
 		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
 		let ret = null
+		let isReading = false
 		let position = BigInt(0)
 		try {
 			ret = await this.#findVRCLog({
@@ -418,22 +419,36 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 							newRet.watcher.close()
 							break
 						case 'change':
+							if (!isReading) isReading = true
 							void newRet.file
-								.read({
-									length: Number.MAX_SAFE_INTEGER,
-									position,
+								.stat({
+									bigint: true,
 								})
-								.then((e) => {
-									const buffer = e.buffer.subarray(0, e.bytesRead)
-									const index = buffer.lastIndexOf('\n')
-									if (index < 0) return
-									position += BigInt(e.bytesRead - index)
+								.then(async (stat) => {
+									const newSize = stat.size
+									const sizeDiff = newSize - position
+									const length = sizeDiff > Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : Number(sizeDiff)
+									//If we ever need to read more than this, we'll probably run out of memory before everything gets read.
+									await newRet.file
+										.read({
+											length,
+											position,
+										})
+										.then((e) => {
+											const buffer = e.buffer.subarray(0, e.bytesRead)
+											const index = buffer.lastIndexOf('\n')
+											if (index < 0) return
+											position += BigInt(e.bytesRead - index)
 
-									this.#processLogFile(buffer.toString('utf8', 0, index + 1))
+											this.#processLogFile(buffer.toString('utf8', 0, index + 1))
+										})
 								})
 								.catch((e) => {
 									this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
 									newRet.watcher.close()
+								})
+								.finally(() => {
+									isReading = false
 								})
 							break
 						default:
