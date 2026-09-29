@@ -295,7 +295,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			.catch((e) => {
 				if (e.name === 'AbortError')
 					if (typeof e.cause === 'string') this.log('info', `reconnection aborted, because: ${e.cause}`)
-					else this.log('info', `reconnection aborted, because: ${e.cause}`)
+					else this.log('info', 'reconnection aborted')
 				else this.log('error', `reconnection failed, due to error: ${e}`)
 			})
 			.finally(() => {
@@ -317,8 +317,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			.catch((e) => {
 				if (e.name === 'AbortError') {
 					if (typeof e.cause === 'string') this.log('info', `logRead aborted, because: ${e.cause}`)
-					else this.log('info', `reconnection aborted, because: ${e.cause}`)
-				} else this.log('error', `reconnection failed, due to error: ${e}`)
+					else this.log('info', 'logRead aborted')
+				} else this.log('error', `logRead failed, due to error: ${e}`)
 			})
 	}
 
@@ -467,7 +467,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				.on('error', (e) => {
 					if (e.name === 'AbortError') {
 						if (typeof e.cause === 'string') this.log('info', `logWatch aborted, because: ${e.cause}`)
-						else this.log('info', `logWatch aborted, because: ${e}`)
+						else this.log('info', 'logWatch aborted')
 					} else this.log('error', `logWatch failed, due to error: ${e}`)
 					newRet.watcher.close()
 				})
