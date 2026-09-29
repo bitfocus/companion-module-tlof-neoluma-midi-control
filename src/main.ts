@@ -270,8 +270,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 
 		this.#resetTimeout.abort(parsedOptions.reason)
-		const oldResetController = this.#resetTimeout
-		this.#resetTimeout = new AbortController()
+		const oldResetController = new AbortController()
+		this.#resetTimeout = oldResetController
 
 		this.setVariableValues({
 			connected: false,
@@ -284,7 +284,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		void timersPromises
 			// 1 second
 			.setTimeout(1e3, undefined, {
-				signal: this.#resetTimeout.signal,
+				signal: oldResetController.signal,
 			})
 			.then(() => {
 				if (!parsedOptions.doReconnect) return
