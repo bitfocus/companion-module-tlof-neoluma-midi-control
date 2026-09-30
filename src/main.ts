@@ -172,6 +172,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		*/
 	}
 
+	//<editor-fold desc="Action Callbacks">
 	ToggleOption(option: string, logical: LogicalMappingsEnum | undefined): void {
 		const toggle = toggles.find(
 			(toggle) =>
@@ -242,6 +243,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			this.log('error', `Could not find slider with id=${option}`)
 		}
 	}
+	//</editor-fold>
 
 	reset(options?: {
 		reason?: string
@@ -344,6 +346,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
+	//<editor-fold desc="Midi functions">
 	#sendMidiControl(channel: number, number: number, value: number): void {
 		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending CC ch${channel} number${number} value${value}`)
@@ -387,6 +390,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			closeLogfile: false,
 		})
 	}
+	//</editor-fold>
 
 	async #readLogs(): Promise<boolean> {
 		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
