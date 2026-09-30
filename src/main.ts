@@ -413,10 +413,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				follow: false,
 				logger: {
 					info(data: any) {
-						tailLogger.debug(`${data.replace(os.homedir(), '$HOME')}`)
+						tailLogger.debug(`${typeof data === 'string' ? data.replace(os.homedir(), '$HOME') : data}`)
 					},
 					error(data: any) {
-						tailLogger.warn(`${data.replace(os.homedir(), '$HOME')}`)
+						tailLogger.warn(`${typeof data === 'string' ? data.replace(os.homedir(), '$HOME') : data}`)
 					},
 				},
 				encoding: 'utf-8',
