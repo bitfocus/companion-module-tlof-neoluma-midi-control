@@ -1,4 +1,4 @@
-import { InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
+import { createModuleLogger, InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
 import { GetConfigFields, type ModuleConfig } from './config.js'
 import { defaultValues, UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
@@ -19,9 +19,10 @@ import type LogicalMappingsEnum from './mapping/logical_mappings_enum.js'
 import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mappings.js'
 import type MappingData from './mapping/mapping_data.js'
 import type { SliderMappingData } from './mapping/mapping_data.js'
-import type { FileHandle } from 'node:fs/promises'
-import type { FSWatcher, WatchListener, WatchOptionsWithStringEncoding } from 'node:fs'
 import { VRC_EDITOR_PATH, VRC_PATH } from './logPaths.js'
+import { Tail } from 'tail'
+
+const tailLogger = createModuleLogger('TailUtil')
 
 export type ModuleSchema = {
 	config: ModuleConfig
@@ -44,7 +45,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	config!: ModuleConfig // Setup in init()
 	#midiOutput: Output | null = null
 	#inReset: boolean = false
-	#isReadingLog: boolean = false
+	#logTail: Tail | null = null
 	#lastUpdate: number
 	#lastWatchdog: number
 	#watchdogInterval: NodeJS.Timeout | null = null
@@ -141,6 +142,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	start(): void {
 		this.#resetTimeout.abort('module started')
 		this.#resetTimeout = new AbortController()
+		this.#stopReadLogs('module started')
+		this.#inReset = false
 		this.log('debug', '\nEntering *main*\n')
 		this.updateStatus(InstanceStatus.Connecting, 'Connecting for the first time')
 		this.#lastUpdate = Date.now()
@@ -261,15 +264,14 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 		const parsedOptions = { ...defaultOptions, ...(options ?? {}) }
 
+		this.log('debug', `reset called with reason: ${parsedOptions.reason}`)
+
 		//This prevents simple reset loops, such as a reset aborting the logReader, which will also call reset on close
 		if (!parsedOptions.ignoreInReset && this.#inReset) return
 		this.#inReset = true
 
 		this.#lastUpdate = Date.now()
-		if (parsedOptions.closeLogfile) {
-			this.#readLogTimeout.abort(parsedOptions.reason)
-			this.#readLogTimeout = new AbortController()
-		}
+		if (parsedOptions.closeLogfile) this.#stopReadLogs(parsedOptions.reason)
 
 		this.#resetTimeout.abort(parsedOptions.reason)
 		const oldResetController = new AbortController()
@@ -325,7 +327,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	isLogRead(): boolean {
-		return this.#isReadingLog
+		return this.#logTail !== null
 	}
 
 	#tick(): void {
@@ -392,111 +394,48 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 	//</editor-fold>
 
+	#stopReadLogs(reason: string): void {
+		this.#logTail?.unwatch()
+		this.#logTail = null
+		this.#readLogTimeout.abort(reason)
+		this.#readLogTimeout = new AbortController()
+	}
 	async #readLogs(): Promise<boolean> {
 		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
-		let ret = null
-		let isReading = false
-		let pending = false
-		let position = BigInt(0)
 		try {
-			ret = await this.#findVRCLog({
-				encoding: 'utf8',
-				persistent: false,
-				signal: this.#readLogTimeout.signal,
+			const path = await this.#findVRCLog()
+			if (path == null) return false
+			const tailObj = new Tail(path, {
+				fromBeginning: false,
+				fsWatchOptions: {
+					signal: this.#readLogTimeout.signal,
+				},
+				follow: false,
+				logger: {
+					info(data: any) {
+						tailLogger.debug(`${data.replace(os.homedir(), '$HOME')}`)
+					},
+					error(data: any) {
+						tailLogger.warn(`${data.replace(os.homedir(), '$HOME')}`)
+					},
+				},
+				encoding: 'utf-8',
 			})
+			this.#logTail = tailObj
+			this.log('debug', `Watching log: ${path.replace(os.homedir(), '$HOME')}`)
 
-			if (ret === null) return false
-			const newRet = ret
-
-			position = await ret.file
-				.stat({
-					bigint: true,
-				})
-				.then((v) => v.size)
-
-			this.#isReadingLog = true
-
-			newRet.watcher
-				.on('change', (eventType) => {
-					const read = async () => {
-						if (isReading) {
-							pending = true
-							return
-						}
-						isReading = true
-						newRet.file
-							.stat({
-								bigint: true,
-							})
-							.then(async (stat) => {
-								pending = false
-								const newSize = stat.size
-								const sizeDiff = newSize - position
-								const length = sizeDiff > Number.MAX_SAFE_INTEGER ? Number.MAX_SAFE_INTEGER : Number(sizeDiff)
-								if (length == 0) return null
-								//If we ever need to read more than this, we'll probably run out of memory before everything gets read.
-								return await newRet.file.read({
-									length,
-									position,
-								})
-							})
-							.then((e) => {
-								if (e === null) return
-								const buffer = e.buffer.subarray(0, e.bytesRead)
-								const index = buffer.lastIndexOf('\n')
-								if (index < 0) return
-								position += BigInt(index + 1)
-
-								this.#processLogFile(buffer.toString('utf8', 0, index + 1))
-							})
-							.then(async () => {
-								isReading = false
-								if (pending) await read()
-							})
-							.catch((e) => {
-								isReading = false
-								this.log('error', `failed to read from logfile from position ${position} to end: ${e}`)
-								newRet.watcher.close()
-							})
-					}
-					switch (eventType) {
-						case 'rename':
-							this.log('info', 'VRChat LogFile was deleted, moved or renamed.')
-							newRet.watcher.close()
-							break
-						case 'change':
-							void read()
-							break
-						default:
-							break
-					}
-				})
-				.on('close', () => {
-					void newRet.file.close().catch((e) => {
-						this.log('error', `failed to close LogFile: ${e}`)
-					})
-					this.#isReadingLog = false
-					this.reset({
-						reason: 'LogWatcher closed',
-					})
-				})
-				.on('error', (e) => {
-					if (e.name === 'AbortError') {
-						if (typeof e.cause === 'string') this.log('info', `logWatch aborted, because: ${e.cause}`)
-						else this.log('info', 'logWatch aborted')
-					} else this.log('error', `logWatch failed, due to error: ${e}`)
-					newRet.watcher.close()
-				})
+			tailObj.on('line', (line) => {
+				if (typeof line !== 'string') return
+				this.#processLogFile(line)
+			})
+			tailObj.on('error', (error) => {
+				this.log('error', `Error during log-read: ${error}`)
+				this.#stopReadLogs('Error during log-read')
+			})
 
 			return true
 		} catch (err) {
-			try {
-				ret?.watcher.close()
-				await ret?.file.close()
-			} catch (err) {
-				this.log('error', `failed to close LogFile: ${err}`)
-			}
-			this.#isReadingLog = false
+			this.#stopReadLogs('error whilst starting LogReading')
 			this.reset({
 				reason: 'error whilst starting LogReading',
 				closeLogfile: true,
@@ -506,19 +445,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 	}
 
-	async #findVRCLog(
-		options: WatchOptionsWithStringEncoding,
-		callback?: WatchListener<string>,
-	): Promise<{ watcher: FSWatcher; file: FileHandle; path: string } | null> {
+	async #findVRCLog(): Promise<string | null> {
 		let logs: string[] = []
 
 		try {
 			if (this.config.useEditorLog) {
-				return {
-					watcher: fs.watch(VRC_EDITOR_PATH, options, callback),
-					file: await fsPromises.open(VRC_EDITOR_PATH, 'r'),
-					path: VRC_EDITOR_PATH,
-				}
+				return VRC_EDITOR_PATH
 			} else {
 				logs = await fsPromises.readdir(VRC_PATH).then((v) =>
 					v
@@ -541,13 +473,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		const latest = logs[logs.length - 1]
 		try {
-			const file = {
-				watcher: fs.watch(latest, options, callback),
-				file: await fsPromises.open(latest, 'r'),
-				path: latest,
-			}
-			this.log('debug', `Watching log: ${latest.replace(os.homedir(), '$HOME')}`)
-			return file
+			await fsPromises.access(latest, fs.constants.R_OK)
+			return latest
 		} catch {
 			this.updateStatus(InstanceStatus.ConnectionFailure, 'Failed to read logs')
 			this.reset({
