@@ -1,4 +1,7 @@
 import * as node_midi from '@julusian/midi'
+import { createModuleLogger } from '@companion-module/base'
+
+const logger = createModuleLogger('MidiUtil')
 
 export class Output {
 	private _output: node_midi.Output | null = null
@@ -17,19 +20,19 @@ export class Output {
 				}
 			}
 		} catch (err) {
-			console.log(`Error opening port ${name}.\nError: ${err}`)
+			logger.error(`Error opening port ${name}.\nError: ${err}`)
 			this._output?.closePort()
 			this._output = null
 		}
 	}
 
 	close(): void {
-		if (!this._output) return
+		if (this._output === null) return
 		try {
 			this._output.closePort()
 			this._output.destroy()
-		} catch {
-			/* empty */
+		} catch (e) {
+			logger.error(`Error whilst closing port: ${e}`)
 		}
 		this._output = null
 	}
@@ -38,7 +41,8 @@ export class Output {
 		if (this._output === null) return false
 		try {
 			return this._output.isPortOpen()
-		} catch {
+		} catch (e) {
+			logger.error(`Error determining if port is open: ${e}`)
 			return false
 		}
 	}
@@ -48,7 +52,8 @@ export class Output {
 		try {
 			this._output.sendMessage(bytes)
 			return true
-		} catch {
+		} catch (e) {
+			logger.error(`Error during sending Midi Message: ${e}`)
 			return false
 		}
 	}
@@ -70,12 +75,12 @@ export function getOutputs(output?: node_midi.Output): string[] {
 			let numberedPortName = portName
 			while (outputs.includes(numberedPortName)) {
 				counter++
-				numberedPortName += ` ${counter}`
+				numberedPortName = `${portName} ${counter}`
 			}
 			outputs.push(numberedPortName)
 		}
 	} catch (err) {
-		console.error(err)
+		logger.error(`Failed to get Midi Outputs: ${err}`)
 	}
 	return outputs
 }
