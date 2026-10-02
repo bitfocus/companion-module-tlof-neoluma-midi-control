@@ -403,9 +403,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	async #readLogs(): Promise<boolean> {
 		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
 		try {
-			const path = await this.#findVRCLog()
-			if (path == null) return false
-			const tailObj = new Tail(path, {
+			const logPath = await this.#findVRCLog()
+			if (logPath == null) return false
+			const tailObj = new Tail(logPath, {
 				fromBeginning: false,
 				fsWatchOptions: {
 					signal: this.#readLogTimeout.signal,
@@ -422,7 +422,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				encoding: 'utf-8',
 			})
 			this.#logTail = tailObj
-			this.log('debug', `Watching log: ${path.replace(os.homedir(), '$HOME')}`)
+			this.log('debug', `Watching log: ${logPath.replace(os.homedir(), '$HOME')}`)
 
 			tailObj.on('line', (line) => {
 				if (typeof line !== 'string') return
@@ -431,6 +431,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			tailObj.on('error', (error) => {
 				this.log('error', `Error during log-read: ${error}`)
 				this.#stopReadLogs('Error during log-read')
+				this.reset({
+					reason: `Error during log-read: ${error}`,
+					closeLogfile: true,
+				})
 			})
 
 			return true
@@ -450,7 +454,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		try {
 			if (this.config.useEditorLog) {
-				return VRC_EDITOR_PATH
+				logs = [VRC_EDITOR_PATH]
 			} else {
 				logs = await fsPromises.readdir(VRC_PATH).then((v) =>
 					v
