@@ -62,7 +62,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					default: 0,
 				},
 			],
-			callback: async (action) => {
+			callback: (action) => {
 				self.ToggleOption(action.options.option, action.options.logical)
 			},
 		},
@@ -98,7 +98,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					max: maxLogicalIndex,
 				},
 			],
-			callback: async (action) => {
+			callback: (action) => {
 				self.PressButton(action.options.option, action.options.logical, action.options?.index)
 			},
 		},
@@ -125,7 +125,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					default: 0,
 				},
 			],
-			callback: async (action) => {
+			callback: (action) => {
 				self.SetEnum(action.options.option, action.options.logical)
 			},
 		},
@@ -160,7 +160,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					max: 127,
 				},
 			],
-			callback: async (action) => {
+			callback: (action) => {
 				self.SetSlider(
 					action.options.option,
 					action.options?.logical ? action.options.logical : undefined,
@@ -171,7 +171,7 @@ export function UpdateActions(self: ModuleInstance): void {
 		reset: {
 			name: 'Reset',
 			options: [],
-			callback: async () => {
+			callback: () => {
 				self.reset({
 					reason: 'Manual Reset via Button',
 				})
