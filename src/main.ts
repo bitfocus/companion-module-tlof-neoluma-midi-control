@@ -176,7 +176,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	//<editor-fold desc="Action Callbacks">
-	ToggleOption(option: string, logical: LogicalMappingsEnum | undefined): void {
+	ToggleOption(option: string, logical: LogicalMappingsEnum | undefined, value: number): void {
 		const toggle = toggles.find(
 			(toggle) =>
 				toggle.id === option ||
@@ -187,7 +187,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (toggle) {
 			let velocity = toggle.velocity
 			if (toggle.isLogical === true && logical !== undefined) velocity += logical
-			this.#sendMidiControl(toggle.channel, toggle.number, velocity)
+
+			if (value === 0) this.#sendMidiNoteOff(toggle.channel, toggle.number, velocity)
+			else if (value === 1) this.#sendMidiNoteOn(toggle.channel, toggle.number, velocity)
+			else this.#sendMidiControl(toggle.channel, toggle.number, velocity)
 		} else {
 			this.log('error', `Could not find toggle with id=${option}`)
 		}

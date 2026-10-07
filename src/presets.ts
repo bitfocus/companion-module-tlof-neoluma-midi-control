@@ -6,6 +6,7 @@ import buttons from './mapping/buttons.js'
 import sliders from './mapping/sliders.js'
 import enums from './mapping/enums.js'
 import feedbackMappings from './mapping/feedback_mappings.js'
+import { DefaultToggleDropdownOption } from './constants.js'
 
 export function UpdatePresets(self: ModuleInstance): void {
 	const structure: CompanionPresetSection[] = [
@@ -156,6 +157,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 									(option.isLogical === true ? 'LOGICAL__' : typeof option.isLogical === 'number' ? 'INDEX__' : '') +
 									option.id,
 								logical: 0,
+								value: DefaultToggleDropdownOption,
 							},
 						},
 					],
@@ -222,9 +224,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'toggles' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'toggles' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -291,9 +291,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'buttons' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'buttons' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -385,9 +383,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'enums' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'enums' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -581,7 +577,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 		const def = structure[0].definitions.find(
 			(def) =>
 				typeof def !== 'string' &&
-				def.id === 'sliders' + (option.isLogical !== undefined ? '-logical' : '') &&
+				def.id === 'sliders' + (option.isLogical === true ? '-logical' : '') &&
 				def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
