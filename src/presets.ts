@@ -222,7 +222,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' && def.id === 'toggles' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
+				typeof def !== 'string' && def.id === 'toggles' + (option.isLogical !== undefined ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -289,7 +289,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' && def.id === 'buttons' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
+				typeof def !== 'string' && def.id === 'buttons' + (option.isLogical !== undefined ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -381,7 +381,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' && def.id === 'enums' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
+				typeof def !== 'string' && def.id === 'enums' + (option.isLogical !== undefined ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -575,7 +575,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 		const def = structure[0].definitions.find(
 			(def) =>
 				typeof def !== 'string' &&
-				def.id === 'sliders' + (option.isLogical === true ? '-logical' : '') &&
+				def.id === 'sliders' + (option.isLogical !== undefined ? '-logical' : '') &&
 				def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
