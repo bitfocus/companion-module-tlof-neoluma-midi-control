@@ -172,7 +172,9 @@ export function UpdateActions(self: ModuleInstance): void {
 			name: 'Reset',
 			options: [],
 			callback: async () => {
-				self.reset()
+				self.reset({
+					reason: 'Manual Reset via Button',
+				})
 			},
 		},
 	})
