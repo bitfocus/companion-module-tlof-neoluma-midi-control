@@ -387,6 +387,17 @@ export const toggles: MappingData[] = [
 		class: 'midi',
 	},
 	{
+		id: 'General__Gobo Spin Speed Reverse',
+		label: 'General - Gobo Spin Speed Reverse',
+		channel: 0,
+		number: 1,
+		velocity: 122,
+		type: 'single',
+		isLogical: false,
+		enum: null,
+		class: 'physical',
+	},
+	{
 		id: 'Activation__Section Enabled',
 		label: 'Activation - Section Enabled',
 		channel: 0,

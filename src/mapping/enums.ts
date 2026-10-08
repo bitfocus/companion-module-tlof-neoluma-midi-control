@@ -755,8 +755,8 @@ export const enums: MappingData[] = [
 		],
 	},
 	{
-		id: 'Activation__Gobo',
-		label: 'Activation - Gobo',
+		id: 'General__Gobo',
+		label: 'General - Gobo',
 		isLogical: true,
 		type: 'indexed',
 		enum: 'Gobo',
