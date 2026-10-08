@@ -356,7 +356,7 @@ export function upgrade<T extends JsonObject | undefined>(
 			action.actionId === 'set_enum' ||
 			action.actionId === 'set_slider'
 		) {
-			includeAction = typeof action.options.index === 'undefined'
+			includeAction = typeof action.options.index === 'undefined' || typeof action.options.index.value === 'undefined'
 			action.options.index ??= {
 				value: 0,
 				isExpression: false,
