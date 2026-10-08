@@ -1,13 +1,47 @@
-export default interface MappingData<VelocityType = number> {
+export interface BaseMapping {
 	id: string
 	label: string
+}
+export interface NumberInfo<T = number> {
 	channel: number
 	number: number
-	velocity: VelocityType
-	enum?: string
-	isLogical?: boolean | number
+	velocity: T
+}
+export interface BaseChannelMapping<T = number> extends BaseMapping, NumberInfo<T> {}
+export interface ChannelMapping<T = number> extends BaseChannelMapping<T> {
+	type: 'single'
+}
+export interface LogicalMapping<T = number> extends BaseChannelMapping<T> {
+	type: 'ranged'
+	range: {
+		variable: 'velocity' | 'number'
+		start: number
+		end: number
+	}
+}
+export interface BaseMappingData {
+	enum: string | null
+	class: 'physical' | 'logical' | 'global' | 'midi'
+}
+export interface ChannelMappingData<T = number> extends ChannelMapping<T>, BaseMappingData {
+	isLogical: false
+}
+export interface LogicalMappingData<T = number> extends LogicalMapping<T>, BaseMappingData {
+	isLogical: true
 }
 
+export interface IndexedNonLogicalMapping<T = number> extends BaseMapping, BaseMappingData {
+	type: 'indexed'
+	isLogical: false
+	values: ChannelMapping<T>[]
+}
+export interface IndexedLogicalMapping<T = number> extends BaseMapping, BaseMappingData {
+	type: 'indexed'
+	isLogical: true
+	values: LogicalMapping<T>[]
+}
+export type MappingData<T = number> =
+	ChannelMappingData<T> | LogicalMappingData<T> | IndexedNonLogicalMapping<T> | IndexedLogicalMapping<T>
 export type SliderMappingData = MappingData<'ALL'>
 
 /*
