@@ -4,12 +4,14 @@ import enums from './mapping/enums.js'
 import LogicalMappingsEnum, { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'
 import sliders from './mapping/sliders.js'
 import toggles from './mapping/toggles.js'
+import { DefaultToggleDropdownOption, ToggleDropdownOptions } from './constants.js'
 
 export type ActionsSchema = {
 	toggle: {
 		options: {
 			option: string
 			logical: LogicalMappingsEnum
+			value: number
 		}
 	}
 	press_button: {
@@ -40,7 +42,7 @@ export type ActionsSchema = {
 export function UpdateActions(self: ModuleInstance): void {
 	self.setActionDefinitions({
 		toggle: {
-			name: 'Toggle Option',
+			name: 'Set Option',
 			options: [
 				{
 					type: 'dropdown',
@@ -61,9 +63,17 @@ export function UpdateActions(self: ModuleInstance): void {
 					choices: LogicalMappingsDropdownOptions,
 					default: 0,
 				},
+				{
+					type: 'dropdown',
+					id: 'value',
+					label: 'Value',
+					expressionDescription: '0 for disable, 1 for enable, 2 for toggle',
+					choices: ToggleDropdownOptions,
+					default: DefaultToggleDropdownOption,
+				},
 			],
 			callback: async (action) => {
-				self.ToggleOption(action.options.option, action.options.logical)
+				self.ToggleOption(action.options.option, action.options.logical, action.options.value)
 			},
 		},
 		press_button: {
