@@ -26,15 +26,6 @@ jobs:
       - name: Prepare Environment
         run: |
           corepack enable
-      - name: Prepare Environment (For template repository)
-        # Only run this step if the repository is a template repository
-        # If you are using this in a module, you can remove this step
-        if: ${{ contains(github.repository, 'companion-module-template-') }}
-        run: |
-          # Perform an install to generate the lockfile
-          yarn install
-        env:
-          CI: false
       - name: Prepare module
         run: |
           yarn install
