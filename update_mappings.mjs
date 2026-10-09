@@ -413,8 +413,20 @@ export const maxLogicalIndex = Math.max(
 `
 mapping_enums += ']\n\nexport default enums\n'
 mapping_feedback_mappings += ']\n\nexport default feedbackMappings\n'
-mapping_logical_mappings_enum +=
-	'\t*/\n}\n\nexport const LogicalMappingsDropdownOptions = Object.keys(LogicalMappingsEnum)\n	.filter((key) => !isNaN(Number(key)))\n	.map((option) => ({\n		id: Number(option),\n		label: LogicalMappingsEnum[Number(option)],\n	}))\n\nexport default LogicalMappingsEnum\n'
+mapping_logical_mappings_enum += `\t*/
+}
+
+export const LogicalMappingsDropdownOptions = Object.keys(LogicalMappingsEnum)
+\t.filter((key) => !isNaN(Number(key)))
+\t.map((option) => ({
+\t\tid: Number(option),
+\t\tlabel: LogicalMappingsEnum[Number(option)],
+\t}))
+
+export const LogicalMappingsDropdownValues = LogicalMappingsDropdownOptions.map((v) => v.id)
+
+export default LogicalMappingsEnum
+`
 mapping_sliders += ']\n\nexport default sliders\n'
 mapping_toggles += ']\n\nexport default toggles\n'
 

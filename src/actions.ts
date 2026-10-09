@@ -1,7 +1,10 @@
 import type ModuleInstance from './main.js'
 import buttons, { maxLogicalIndex } from './mapping/buttons.js'
 import enums from './mapping/enums.js'
-import LogicalMappingsEnum, { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'
+import LogicalMappingsEnum, {
+	LogicalMappingsDropdownOptions,
+	LogicalMappingsDropdownValues,
+} from './mapping/logical_mappings_enum.js'
 import sliders from './mapping/sliders.js'
 import toggles from './mapping/toggles.js'
 import {
@@ -23,7 +26,7 @@ export type ActionsSchema = {
 	toggle: {
 		options: {
 			option: string
-			logical: LogicalMappingsEnum
+			logical: LogicalMappingsEnum[]
 			index: number
 			value: number
 		}
@@ -31,21 +34,21 @@ export type ActionsSchema = {
 	press_button: {
 		options: {
 			option: string
-			logical: LogicalMappingsEnum
+			logical: LogicalMappingsEnum[]
 			index: number
 		}
 	}
 	set_enum: {
 		options: {
 			option: string
-			logical: LogicalMappingsEnum
+			logical: LogicalMappingsEnum[]
 			index: number
 		}
 	}
 	set_slider: {
 		options: {
 			option: string
-			logical: LogicalMappingsEnum
+			logical: LogicalMappingsEnum[]
 			index: number
 			value: number
 		}
@@ -72,12 +75,12 @@ export function UpdateActions(self: ModuleInstance): void {
 					default: '',
 				},
 				{
-					type: 'dropdown',
+					type: 'multidropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
 					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
-					default: 0,
+					default: LogicalMappingsDropdownValues,
 				},
 				{
 					type: 'number',
@@ -116,12 +119,12 @@ export function UpdateActions(self: ModuleInstance): void {
 					default: '',
 				},
 				{
-					type: 'dropdown',
+					type: 'multidropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
 					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
-					default: 0,
+					default: LogicalMappingsDropdownValues,
 				},
 				{
 					type: 'number',
@@ -152,12 +155,12 @@ export function UpdateActions(self: ModuleInstance): void {
 					default: '',
 				},
 				{
-					type: 'dropdown',
+					type: 'multidropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
 					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
-					default: 0,
+					default: LogicalMappingsDropdownValues,
 				},
 				{
 					type: 'number',
@@ -188,12 +191,12 @@ export function UpdateActions(self: ModuleInstance): void {
 					default: '',
 				},
 				{
-					type: 'dropdown',
+					type: 'multidropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
 					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
-					default: 0,
+					default: LogicalMappingsDropdownValues,
 				},
 				{
 					type: 'number',

@@ -17,7 +17,7 @@ import buttons from './mapping/buttons.js'
 import enums from './mapping/enums.js'
 import type LogicalMappingsEnum from './mapping/logical_mappings_enum.js'
 import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mappings.js'
-import type { MappingData, NumberInfo, SliderMappingData } from './mapping/mapping_data.js'
+import type { LogicalMapping, MappingData, NumberInfo, SliderMappingData } from './mapping/mapping_data.js'
 import { VRC_EDITOR_PATH, VRC_PATH } from './logPaths.js'
 import { Tail } from 'tail'
 
@@ -184,10 +184,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	#FindValue<T>(
 		data: MappingData<T>[],
 		option: string,
-		logical: LogicalMappingsEnum,
+		logical: LogicalMappingsEnum[],
 		index: number,
 		add: (value: T, logical: number) => T | undefined,
-	): NumberInfo<T> | undefined {
+	): NumberInfo<T>[] | undefined {
 		const toggle = data.find(FIND_MAPPING_PREDICATE(option))
 		if (typeof toggle === 'undefined') {
 			this.log('error', `Could not find toggle with id=${option}`)
@@ -209,76 +209,98 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 
 		if (mapping.type === 'single') {
+			return [mapping]
+		}
+
+		const MAPPING_RESOLVE = (mapping: LogicalMapping<T>, toAdd: number) => {
+			const length = mapping.range.end - mapping.range.start + 1
+			if (toAdd >= length) {
+				this.log(
+					'error',
+					`Action with id=${option} required an index in the bounds of [0..${length}], but was given ${toAdd}`,
+				)
+				return undefined
+			}
+
+			switch (mapping.range.variable) {
+				case 'number':
+					mapping = { ...mapping, number: mapping.number + toAdd }
+					break
+				case 'velocity': {
+					const velocity = add(mapping.velocity, toAdd)
+					if (typeof velocity === 'undefined') {
+						this.log('warn', `Failed to add ${velocity} and ${logical}`)
+						break
+					}
+
+					mapping = { ...mapping, velocity }
+				}
+			}
+
 			return mapping
 		}
 
-		const toAdd = toggle.isLogical ? logical : index
-		const length = mapping.range.end - mapping.range.start + 1
-		if (toAdd >= length) {
-			this.log(
-				'error',
-				`Action with id=${option} required an index in the bounds of [0..${length}], but was given ${toAdd}`,
-			)
-			return undefined
-		}
-
-		switch (mapping.range.variable) {
-			case 'number':
-				mapping = { ...mapping, number: mapping.number + toAdd }
-				break
-			case 'velocity': {
-				const velocity = add(mapping.velocity, toAdd)
-				if (typeof velocity === 'undefined') {
-					this.log('warn', `Failed to add ${velocity} and ${logical}`)
-					break
-				}
-
-				mapping = { ...mapping, velocity }
+		if (!toggle.isLogical) {
+			const resolved = MAPPING_RESOLVE(mapping, index)
+			if (typeof resolved === 'undefined') {
+				this.log('warn', `Unable to locate Midi Info for option '${option}' with index '${index}'`)
+				return undefined
 			}
+			return [resolved]
 		}
 
-		return mapping
+		const mappings = []
+		for (const instance of logical) {
+			const resolved = MAPPING_RESOLVE(mapping, instance)
+			if (typeof resolved === 'undefined') {
+				this.log('warn', `Unable to locate Midi Info for option '${option}' with logical '${instance}'`)
+				continue
+			}
+			mappings.push(resolved)
+		}
+		return mappings
 	}
-	ToggleOption(option: string, logical: LogicalMappingsEnum, index: number, value: number): void {
-		const note = this.#FindValue(toggles, option, logical, index, (value, logical) => value + logical)
-		if (typeof note === 'undefined') {
+	ToggleOption(option: string, logical: LogicalMappingsEnum[], index: number, value: number): void {
+		const notes = this.#FindValue(toggles, option, logical, index, (value, logical) => value + logical)
+		if (typeof notes === 'undefined') {
 			this.log('error', `Could not find toggle with id=${option}`)
 			return
 		}
-
-		if (value === 0) this.#sendMidiNoteOff(note.channel, note.number, note.velocity)
-		else if (value === 1) this.#sendMidiNoteOn(note.channel, note.number, note.velocity)
-		else this.#sendMidiControl(note.channel, note.number, note.velocity)
+		for (const note of notes) {
+			if (value === 0) this.#sendMidiNoteOff(note.channel, note.number, note.velocity)
+			else if (value === 1) this.#sendMidiNoteOn(note.channel, note.number, note.velocity)
+			else this.#sendMidiControl(note.channel, note.number, note.velocity)
+		}
 	}
 
-	PressButton(option: string, logical: LogicalMappingsEnum, index: number): void {
-		const value = this.#FindValue(buttons, option, logical, index, (value, logical) => value + logical)
-		if (typeof value === 'undefined') {
+	PressButton(option: string, logical: LogicalMappingsEnum[], index: number): void {
+		const values = this.#FindValue(buttons, option, logical, index, (value, logical) => value + logical)
+		if (typeof values === 'undefined') {
 			this.log('error', `Could not find button with id=${option}`)
 			return
 		}
-		this.#sendMidiControl(value.channel, value.number, value.velocity)
+		for (const value of values) this.#sendMidiControl(value.channel, value.number, value.velocity)
 	}
 
-	SetEnum(option: string, logical: LogicalMappingsEnum, index: number): void {
-		const value = this.#FindValue(enums, option, logical, index, (value, logical) => value + logical)
-		if (typeof value === 'undefined') {
+	SetEnum(option: string, logical: LogicalMappingsEnum[], index: number): void {
+		const values = this.#FindValue(enums, option, logical, index, (value, logical) => value + logical)
+		if (typeof values === 'undefined') {
 			this.log('error', `Could not find enum with id=${option}`)
 			return
 		}
-		this.#sendMidiControl(value.channel, value.number, value.velocity)
+		for (const value of values) this.#sendMidiControl(value.channel, value.number, value.velocity)
 	}
 
-	SetSlider(option: string, logical: LogicalMappingsEnum, index: number, value: number): void {
+	SetSlider(option: string, logical: LogicalMappingsEnum[], index: number, value: number): void {
 		if (value < 0 || value > 127) return
 
-		const slider = this.#FindValue(sliders, option, logical, index, () => undefined)
-		if (typeof slider === 'undefined') {
+		const slider_mappings = this.#FindValue(sliders, option, logical, index, () => undefined)
+		if (typeof slider_mappings === 'undefined') {
 			this.log('error', `Could not find slider with id=${option}`)
 			return
 		}
 
-		this.#sendMidiControl(slider.channel, slider.number, value)
+		for (const slider of slider_mappings) this.#sendMidiControl(slider.channel, slider.number, value)
 	}
 	//</editor-fold>
 
