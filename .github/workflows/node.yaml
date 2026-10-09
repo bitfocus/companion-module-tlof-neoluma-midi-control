@@ -51,6 +51,44 @@ jobs:
         env:
           CI: true
 
+  generate_page:
+    name: Generate Testing Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Use Node.js 22.x
+        # This should match the version of Node.js you have defined in the manifest.json runtime field
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+      - name: Prepare Environment
+        run: |
+          corepack enable
+      - name: Prepare module
+        run: |
+          yarn install
+        env:
+          CI: true
+      - name: Build and check types
+        run: |
+          yarn build
+        env:
+          CI: true
+      - name: Run lint
+        run: |
+          node ./generate_page.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: test-pages
+          path: |
+            Test.companionconfig
+            Test2.companionconfig
+          if-no-files-found: error
+
   # Uncomment this to enable running unit tests
   # test:
   #   name: Test
