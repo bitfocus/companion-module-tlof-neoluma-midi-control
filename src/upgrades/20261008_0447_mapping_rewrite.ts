@@ -350,13 +350,18 @@ export function upgrade<T extends JsonObject | undefined>(
 				}
 			}
 		}
-
-		if (action.actionId === 'set_enum' || action.actionId === 'toggle' || action.actionId === 'set_slider') {
+		if (
+			action.actionId === 'toggle' ||
+			action.actionId === 'press_button' ||
+			action.actionId === 'set_enum' ||
+			action.actionId === 'set_slider'
+		) {
+			includeAction = typeof action.options.index === 'undefined'
 			action.options.index ??= {
 				value: 0,
 				isExpression: false,
 			}
-			includeAction = true
+			action.options.index.value ??= 0
 		}
 
 		if (includeAction) updatedActions.push(action)

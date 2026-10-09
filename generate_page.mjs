@@ -346,6 +346,14 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										value: 0,
 										isExpression: false,
 									},
+									index: {
+										value: 0,
+										isExpression: false,
+									},
+									value: {
+										value: 2,
+										isExpression: false,
+									},
 								},
 								upgradeIndex: -1,
 							},
@@ -528,6 +536,10 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										value: 0,
 										isExpression: false,
 									},
+									index: {
+										value: 0,
+										isExpression: false,
+									},
 								},
 								upgradeIndex: -1,
 							},
@@ -624,6 +636,10 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										isExpression: false,
 									},
 									logical: {
+										value: 0,
+										isExpression: false,
+									},
+									index: {
 										value: 0,
 										isExpression: false,
 									},
