@@ -224,7 +224,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 		switch (mapping.range.variable) {
 			case 'number':
-				mapping.number += toAdd
+				mapping = { ...mapping, number: mapping.number + toAdd }
 				break
 			case 'velocity': {
 				const velocity = add(mapping.velocity, toAdd)
@@ -233,7 +233,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					break
 				}
 
-				mapping.velocity = velocity
+				mapping = { ...mapping, velocity }
 			}
 		}
 
