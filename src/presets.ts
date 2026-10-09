@@ -14,6 +14,7 @@ import type {
 	MappingData,
 } from './mapping/mapping_data.js'
 import { DefaultToggleDropdownOption, INDEX_PREFIX, LOGICAL_PREFIX } from './constants.js'
+import { LogicalMappingsDropdownValues } from './mapping/logical_mappings_enum.js'
 
 type unroll_indexed_inner_type<T = number> =
 	| (ChannelMappingData<T> & { index: null })
@@ -216,7 +217,7 @@ function UpdatePresets(self: ModuleInstance): void {
 									(option.isLogical ? LOGICAL_PREFIX : '') +
 									(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 									option.id,
-								logical: 0,
+								logical: LogicalMappingsDropdownValues,
 								index: option.index ?? 0,
 								value: DefaultToggleDropdownOption,
 							},
@@ -317,7 +318,7 @@ function UpdatePresets(self: ModuleInstance): void {
 									(option.isLogical ? LOGICAL_PREFIX : '') +
 									(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 									option.id,
-								logical: 0,
+								logical: LogicalMappingsDropdownValues,
 								index: option.index ?? 0,
 							},
 						},
@@ -371,7 +372,7 @@ function UpdatePresets(self: ModuleInstance): void {
 									(option.isLogical ? LOGICAL_PREFIX : '') +
 									(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 									option.id,
-								logical: 0,
+								logical: LogicalMappingsDropdownValues,
 								index: option.index ?? 0,
 							},
 						},
@@ -501,7 +502,7 @@ function UpdatePresets(self: ModuleInstance): void {
 											(option.isLogical ? LOGICAL_PREFIX : '') +
 											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 											option.id,
-										logical: 0,
+										logical: LogicalMappingsDropdownValues,
 										index: option.index ?? 0,
 										value: 0,
 									},
@@ -548,7 +549,7 @@ function UpdatePresets(self: ModuleInstance): void {
 											(option.isLogical ? LOGICAL_PREFIX : '') +
 											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 											option.id,
-										logical: 0,
+										logical: LogicalMappingsDropdownValues,
 										index: option.index ?? 0,
 										value: 0,
 									},

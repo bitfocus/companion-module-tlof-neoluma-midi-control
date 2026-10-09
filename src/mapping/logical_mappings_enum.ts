@@ -42,4 +42,6 @@ export const LogicalMappingsDropdownOptions = Object.keys(LogicalMappingsEnum)
 		label: LogicalMappingsEnum[Number(option)],
 	}))
 
+export const LogicalMappingsDropdownValues = LogicalMappingsDropdownOptions.map((v) => v.id)
+
 export default LogicalMappingsEnum

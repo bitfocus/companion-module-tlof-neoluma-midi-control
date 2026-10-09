@@ -20,7 +20,7 @@ import enums from './dist/mapping/enums.js'
 // eslint-disable-next-line n/no-unpublished-import
 import sliders from './dist/mapping/sliders.js'
 // eslint-disable-next-line n/no-unpublished-import
-import LogicalMappingsEnum from './dist/mapping/logical_mappings_enum.js'
+import LogicalMappingsEnum, { LogicalMappingsDropdownValues } from './dist/mapping/logical_mappings_enum.js'
 // eslint-disable-next-line n/no-unpublished-import
 import feedbackMappings from './dist/mapping/feedback_mappings.js'
 // eslint-disable-next-line n/no-unpublished-import
@@ -343,7 +343,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										isExpression: false,
 									},
 									logical: {
-										value: 0,
+										value: LogicalMappingsDropdownValues,
 										isExpression: false,
 									},
 									index: {
@@ -447,7 +447,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										isExpression: false,
 									},
 									logical: {
-										value: 0,
+										value: LogicalMappingsDropdownValues,
 										isExpression: false,
 									},
 									index: {
@@ -533,7 +533,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										isExpression: false,
 									},
 									logical: {
-										value: 0,
+										value: LogicalMappingsDropdownValues,
 										isExpression: false,
 									},
 									index: {
@@ -636,7 +636,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 										isExpression: false,
 									},
 									logical: {
-										value: 0,
+										value: LogicalMappingsDropdownValues,
 										isExpression: false,
 									},
 									index: {
