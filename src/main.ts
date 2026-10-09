@@ -1,4 +1,10 @@
-import { createModuleLogger, InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
+import {
+	createModuleLogger,
+	InstanceBase,
+	InstanceStatus,
+	type InstanceTypes,
+	type SomeCompanionConfigField,
+} from '@companion-module/base'
 import { GetConfigFields, type ModuleConfig } from './config.js'
 import { defaultValues, UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
@@ -23,7 +29,7 @@ import { Tail } from 'tail'
 
 const tailLogger = createModuleLogger('TailUtil')
 
-export type ModuleSchema = {
+export interface ModuleSchema extends InstanceTypes {
 	config: ModuleConfig
 	secrets: undefined
 	actions: ActionsSchema
