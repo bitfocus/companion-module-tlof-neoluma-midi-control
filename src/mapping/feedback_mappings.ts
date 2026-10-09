@@ -1,12 +1,6 @@
-export interface FeedbackMappings {
-	number: number
-	name: string
-	hasSections: 'None' | 'Logical' | 'Section' | 'Side' | 'SetColor' | 'Color' | 'AudioLink'
-	type: 'Toggle' | 'Slider' | 'Enum'
-	data: '0-1' | '0-4' | '0-7' | '0-15' | '0-127'
-}
+export type FeedbackMappings = typeof feedbackMappings[number]
 
-export const feedbackMappings: FeedbackMappings[] = [
+export const feedbackMappings = [
 	{
 		number: 1,
 		name: 'AllowPortals',
@@ -378,6 +372,6 @@ export const feedbackMappings: FeedbackMappings[] = [
 		type: 'Slider',
 		data: '0-127',
 	},
-]
+] as const
 
 export default feedbackMappings

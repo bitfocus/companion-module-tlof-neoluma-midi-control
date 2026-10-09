@@ -1522,6 +1522,6 @@ export const enums: MappingData[] = [
 			},
 		],
 	},
-]
+] as const
 
 export default enums

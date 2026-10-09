@@ -477,6 +477,6 @@ export const toggles: MappingData[] = [
 			end: 63,
 		},
 	},
-]
+] as const
 
 export default toggles
