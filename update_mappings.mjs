@@ -408,7 +408,7 @@ mapping_buttons += `]
 export default buttons
 
 export const maxLogicalIndex = Math.max(
-\t...buttons.filter((option) => option.type === 'indexed').map((option) => option.values.length),
+\t...buttons.filter((option) => option.type === 'indexed').map((option) => option.values.length - 1),
 )
 `
 mapping_enums += ']\n\nexport default enums\n'

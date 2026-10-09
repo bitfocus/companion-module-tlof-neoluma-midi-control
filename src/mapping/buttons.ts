@@ -1533,5 +1533,5 @@ export const buttons: MappingData[] = [
 export default buttons
 
 export const maxLogicalIndex = Math.max(
-	...buttons.filter((option) => option.type === 'indexed').map((option) => option.values.length),
+	...buttons.filter((option) => option.type === 'indexed').map((option) => option.values.length - 1),
 )
