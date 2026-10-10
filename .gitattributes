@@ -1,1 +1,8 @@
 * text=auto eol=lf
+/src/mapping/buttons.ts linguist-generated
+/src/mapping/enums.ts linguist-generated
+/src/mapping/feedback_mappings.ts linguist-generated
+/src/mapping/logical_mappings_enum.ts linguist-generated
+/src/mapping/sliders.ts linguist-generated
+/src/mapping/toggles.ts linguist-generated
+/src/variables.ts linguist-generated
