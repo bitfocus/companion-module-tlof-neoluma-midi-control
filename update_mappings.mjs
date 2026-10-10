@@ -12,60 +12,252 @@ This is a utility script to generate the buttons, sliders, enums, from the DOCS.
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import mappings from './world-docs/MIDI/Mappings.json' with { type: 'json' }
 
-/**
- * @param {string} name
- */
-function cleanupName(name) {
-	name = name.trim()
-	if (name.endsWith(':')) name = name.substring(0, name.length - 1)
-	return name
-}
-
-const data = await fs.readFile(path.resolve('./DOCS.md'), { encoding: 'utf-8' })
-const chapters = data.split('\n# ')
-
-let mapping_buttons = "import type MappingData from './mapping_data.js'\n\nexport const buttons: MappingData[] = [\n",
-	mapping_enums = "import type MappingData from './mapping_data.js'\n\nexport const enums: MappingData[] = [\n",
+let mapping_buttons =
+		"import type { MappingData } from './mapping_data.js'\n\nexport const buttons: MappingData[] = [\n",
+	mapping_enums = "import type { MappingData } from './mapping_data.js'\n\nexport const enums: MappingData[] = [\n",
 	mapping_feedback_mappings = 'export const feedbackMappings: FeedbackMappings[] = [\n',
 	mapping_logical_mappings_enum = 'export enum LogicalMappingsEnum {\n',
 	mapping_sliders =
 		"import type { SliderMappingData } from './mapping_data.js'\n\nconst ALL = 'ALL'\n\nexport const sliders: SliderMappingData[] = [\n",
-	mapping_toggles = "import type MappingData from './mapping_data.js'\n\nexport const toggles: MappingData[] = [\n",
+	mapping_toggles = "import type { MappingData } from './mapping_data.js'\n\nexport const toggles: MappingData[] = [\n",
 	feedbacks = `import type ModuleInstance from './main.js'\nimport LogicalMappingsEnum, { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'\n\n`,
 	variables = `import type ModuleInstance from './main.js'\n\n`
 
-let m
+/**
+ * @param Type string
+ * @param string string
+ */
+function add_mapping(Type, string) {
+	if (Type === 'Button') mapping_buttons += string
+	else if (Type === 'Enum') mapping_enums += string
+	else if (Type === 'Slider') mapping_sliders += string
+	else if (Type === 'Toggle') mapping_toggles += string
+	else console.warn('Unknown Mapping type', Type)
+}
 
-for (const chapter of chapters) {
-	const name = cleanupName(chapter.substring(0, chapter.indexOf('\n')))
-	// Midi
-	if (name === 'Mappings') {
+{
+	{
 		console.log('Processing mappings...')
-		const regex =
-			/^\|(?<Channel>[^|\n]+)\|(?<nNumber>[^|\n-]*)(?:-\d+)?\|(?<Velocity>[^|\n]*)\|(?<Section>[^|\n]*)\|(?<Description>[^|\n]*)\|(?<BasedOn>[^|\n]*)\|(?<Type>[^|\n(^]+)(?:\[\^(?:1|2)\])?(?:\((?<Enum>[^)|\n]+)\))?\|$/gm
-		while ((m = regex.exec(chapter)) !== null) {
-			let { Channel, nNumber, Velocity, Section, Description, Type, Enum } = m.groups
-			if (Type === 'Type' || Type === '-') continue
-			Enum ??= ''
-			const string = `\t{\n\t\tid: '${Section}__${Description}',\n\t\tlabel: '${Section} - ${Description}',\n\t\tchannel: ${Channel},\n\t\tnumber: ${nNumber},\n\t\tvelocity: ${Velocity},\n\t\tenum: '${Enum}',\n\t},\n`
-			if (Type === 'Button') mapping_buttons += string
-			else if (Type === 'Enum') mapping_enums += string
-			else if (Type === 'Slider') mapping_sliders += string
-			else if (Type === 'Toggle') mapping_toggles += string
-			else console.warn('Unknown Mapping type', Type)
-		}
-	} else if (name === 'Logical Mappings') {
-		console.log('Processing logical mappings...')
-		mapping_buttons += '\n	// Logical\n'
-		mapping_enums += '\n	// Logical\n'
-		mapping_sliders += '\n	// Logical\n'
-		mapping_toggles += '\n	// Logical\n'
+		for (const mapping of mappings.mappings) {
+			const {
+				class: Class,
+				channel: Channel,
+				number: nNumber,
+				section: Section,
+				name: Description,
+				type: { value: Type },
+			} = mapping
+			const Enum = typeof mapping.type.feedback === 'string' ? `'${mapping.type.feedback}'` : 'null'
+			const Velocity = mapping.velocity ?? 'ALL'
 
-		const regexLogicalMappingEnum = /^\|(?<nNumber>[^|\n]+)\|(?<Section>[^|\n]+)\|(?<Side>[^|\n]+)\|$/gm
+			let string = `\t{
+\t\tid: '${Section}__${Description}',
+\t\tlabel: '${Section} - ${Description}',
+\t\tchannel: ${Channel},
+\t\tnumber: ${nNumber},
+\t\tvelocity: ${Velocity},
+\t\ttype: 'single',
+\t\tisLogical: false,
+\t\tenum: ${Enum},
+\t\tclass: '${Class}',
+\t},
+`
+			add_mapping(Type, string)
+		}
+	}
+	{
+		for (const mappings1 of [mappings.indexedMappings, mappings.enumMappings])
+			for (const mapping of mappings1) {
+				let {
+					class: Class,
+					section: Section,
+					name: Description,
+					type: { value: Type },
+				} = mapping
+				const Enum = typeof mapping.type.feedback === 'string' ? `'${mapping.type.feedback}'` : 'null'
+				let string = `\t{
+\t\tid: '${Section}__${Description}',
+\t\tlabel: '${Section} - ${Description}',
+\t\tisLogical: false,
+\t\ttype: 'indexed',
+\t\tenum: ${Enum},
+\t\tclass: '${Class}',
+\t\tvalues: [`
+
+				for (const [index, value] of mapping.values.entries()) {
+					let { channel, number, velocity } = value
+					const name = typeof value.name === 'string' ? value.name : index
+					string += `
+\t\t\t{
+\t\t\t\tid: '${name}',
+\t\t\t\tlabel: '${name}',
+\t\t\t\tchannel: ${channel},
+\t\t\t\tnumber: ${number},
+\t\t\t\tvelocity: ${velocity},
+\t\t\t\ttype: 'single',
+\t\t\t},`
+				}
+				string += `
+\t\t],
+\t},
+`
+				add_mapping(Type, string)
+			}
+	}
+	{
+		for (const mapping of mappings.rangedMappings) {
+			const {
+				class: Class,
+				channel: Channel,
+				section: Section,
+				name: Description,
+				type: { value: Type },
+			} = mapping
+			const Enum = typeof mapping.type.feedback === 'string' ? `'${mapping.type.feedback}'` : 'null'
+			let Velocity,
+				nNumber,
+				min,
+				max,
+				variable = null
+			switch (typeof mapping.velocity) {
+				case 'undefined':
+					Velocity = "'ALL'"
+					break
+				case 'object':
+					variable = 'velocity'
+					Velocity = mapping.velocity.start
+					min = mapping.velocity.start
+					max = mapping.velocity.end
+					break
+			}
+			switch (typeof mapping.number) {
+				case 'object':
+					if (variable != null) {
+						console.warn('Found ranged Mapping with both variable Velocity and Number')
+						continue
+					}
+					variable = 'number'
+					nNumber = mapping.number.start
+					min = mapping.number.start
+					max = mapping.number.end
+					break
+				case 'number':
+					nNumber = mapping.number
+					if (Velocity === 'ALL') {
+						console.warn('Found ranged Mapping without range in Velocity or Number')
+						continue
+					}
+					break
+			}
+			const string = `\t{
+\t\tid: '${Section}__${Description}',
+\t\tlabel: '${Section} - ${Description}',
+\t\tchannel: ${Channel},
+\t\tnumber: ${nNumber},
+\t\tvelocity: ${Velocity},
+\t\ttype: 'ranged',
+\t\tisLogical: true,
+\t\tenum: ${Enum},
+\t\tclass: '${Class}',
+\t\trange: {
+\t\t\tvariable: '${variable}',
+\t\t\tstart: ${min},
+\t\t\tend: ${max},
+\t\t},
+\t},
+`
+			add_mapping(Type, string)
+		}
+	}
+	{
+		for (const mapping of mappings.enumRangedMappings) {
+			const {
+				class: Class,
+				section: Section,
+				name: Description,
+				type: { value: Type },
+			} = mapping
+			const Enum = typeof mapping.type.feedback === 'string' ? `'${mapping.type.feedback}'` : 'null'
+
+			let string = `\t{
+\t\tid: '${Section}__${Description}',
+\t\tlabel: '${Section} - ${Description}',
+\t\tisLogical: true,
+\t\ttype: 'indexed',
+\t\tenum: ${Enum},
+\t\tclass: '${Class}',
+\t\tvalues: [`
+
+			for (const [index, value] of mapping.values.entries()) {
+				let { channel: Channel, number, velocity } = value
+				const name = typeof value.name === 'string' ? value.name : index
+
+				let Velocity,
+					nNumber,
+					min,
+					max,
+					variable = null
+				switch (typeof velocity) {
+					case 'undefined':
+						Velocity = "'ALL'"
+						break
+					case 'object':
+						variable = 'velocity'
+						Velocity = velocity.start
+						min = velocity.start
+						max = velocity.end
+						break
+				}
+				switch (typeof number) {
+					case 'object':
+						if (variable != null) {
+							console.warn('Found ranged enum Mapping with both variable Velocity and Number')
+							continue
+						}
+						variable = 'number'
+						nNumber = number.start
+						min = number.start
+						max = number.end
+						break
+					case 'number':
+						nNumber = number
+						if (Velocity === 'ALL') {
+							console.warn('Found ranged enum Mapping without range in Velocity or Number')
+							continue
+						}
+						break
+				}
+
+				string += `
+\t\t\t{
+\t\t\t\tid: '${name}',
+\t\t\t\tlabel: '${name}',
+\t\t\t\tchannel: ${Channel},
+\t\t\t\tnumber: ${nNumber},
+\t\t\t\tvelocity: ${Velocity},
+\t\t\t\ttype: 'ranged',
+\t\t\t\trange: {
+\t\t\t\t\tvariable: '${variable}',
+\t\t\t\t\tstart: ${min},
+\t\t\t\t\tend: ${max},
+\t\t\t\t},
+\t\t\t},`
+			}
+
+			string += `
+\t\t],
+\t},
+`
+			add_mapping(Type, string)
+		}
+	}
+	{
+		console.log('Processing logical mappings...')
 		let foundReserved = false
-		while ((m = regexLogicalMappingEnum.exec(chapter)) !== null) {
-			let { nNumber, Section, Side } = m.groups
+		for (const value of mappings.rangedNames) {
+			const { index: nNumber, section: Section, side: Side } = value
 			if (Section === 'Section' || Section === '-') continue // Table header
 			if (Section === 'RESERVED' && foundReserved === false) {
 				mapping_logical_mappings_enum += '\t/*\n'
@@ -73,32 +265,10 @@ for (const chapter of chapters) {
 			}
 			mapping_logical_mappings_enum += `\t${Section}_${Side} = ${nNumber},\n`
 		}
-
-		const regexButtons =
-			/^\|(?<Channel>[^|\n]*)\|(?<nNumber>[^|\n-]*)\|(?<Velocity>[^|\n-]*)-(?<Max>\d+)\|(?<Section>[^|\n]*)\|(?<Description>[^|\n]*)\|Button(?:\((?<Enum>[^)|\n]+)\))?\|$/gm
-		while ((m = regexButtons.exec(chapter)) !== null) {
-			let { Channel, nNumber, Velocity, Max, Section, Description, Enum } = m.groups
-			if (Section === 'Section' || Section === '-') continue
-			Enum ??= ''
-			mapping_buttons += `\t{\n\t\tid: '${Section}__${Description}',\n\t\tlabel: '${Section} - ${Description}',\n\t\tchannel: ${Channel},\n\t\tnumber: ${nNumber},\n\t\tvelocity: ${Velocity},\n\t\tenum: '${Enum}',\n\t\tisLogical: ${Max} - ${Velocity} + 1,\n\t},\n`
-		}
-
-		const regex =
-			/^\|(?<Channel>[^|\n]*)\|(?<nNumber>[^|\n-]*)(?:-\d+)?\|(?<Velocity>[^|\n-]*)(?:-\d+)?\|(?<Section>[^|\n]*)\|(?<Description>[^|\n]*)\|(?<Type>[^|\n(^]+)(?:\[\^(?:1|2)\])?(?:\((?<Enum>[^)|\n]+)\))?\|$/gm
-		while ((m = regex.exec(chapter)) !== null) {
-			let { Channel, nNumber, Velocity, Section, Description, Type, Enum } = m.groups
-			if (Type === 'Type' || Type === '-') continue
-			Enum ??= ''
-			const string = `\t{\n\t\tid: '${Section}__${Description}',\n\t\tlabel: '${Section} - ${Description}',\n\t\tchannel: ${Channel},\n\t\tnumber: ${nNumber},\n\t\tvelocity: ${Velocity},\n\t\tenum: '${Enum}',\n\t\tisLogical: true,\n\t},\n`
-			if (Type === 'Enum') mapping_enums += string
-			else if (Type === 'Toggle') mapping_toggles += string
-			else if (Type === 'Slider') mapping_sliders += string
-		}
-	} else if (name === 'Midi Feedback') {
+	}
+	{
 		console.log('Processing midi feedback...')
-		const regex =
-				/^\|?(?<nNumber>[^|\n]+)\|(?<Name>[^|\n]+)\|(?<HasSections>[^|\n]+)\|(?<Type>[^|\n]+)\|(?<Data>[^|\n]+)\|?$/gm,
-			hasSectionsOptions = [],
+		const hasSectionsOptions = [],
 			typeOptions = [],
 			dataOptions = []
 		let variablesNormal = ['', ''],
@@ -107,16 +277,31 @@ for (const chapter of chapters) {
 			feedbacksNormal = ['', ''],
 			feedbacksLogical = ['', ''],
 			feedbacksOther = ['', '']
-		while ((m = regex.exec(chapter)) !== null) {
-			let { nNumber, Name, HasSections, Type, Data } = m.groups
-			if (Type === 'Type' || Type === '-') continue
-			if (Data === 'Bool') Data = '0-1'
+		for (const feedback of mappings.feedback) {
+			let Min, Max
+			switch (feedback.data.type) {
+				case 'Bool':
+					Min = 0
+					Max = 1
+					break
+				case 'Range':
+					Min = feedback.data.start
+					Max = feedback.data.end
+					break
+				default:
+					console.warn('Unknown data type: ' + feedback.data.type)
+					continue
+			}
+			const Data = `${Min}-${Max}`
+			const HasSections = feedback['section-type']
+			const Type = feedback.type
+			const Name = feedback.name
+			const nNumber = feedback.number
 			mapping_feedback_mappings += `\t{\n\t\tnumber: ${nNumber},\n\t\tname: '${Name}',\n\t\thasSections: '${HasSections}',\n\t\ttype: '${Type}',\n\t\tdata: '${Data}',\n\t},\n`
 
 			if (!hasSectionsOptions.includes(HasSections)) hasSectionsOptions.push(HasSections)
 			if (!typeOptions.includes(Type)) typeOptions.push(Type)
 			if (!dataOptions.includes(Data)) dataOptions.push(Data)
-			const [Min, Max] = Data.split('-')
 
 			if (HasSections === 'None') {
 				variablesNormal[0] += `\t${Name}: number\n`
@@ -150,6 +335,7 @@ for (const chapter of chapters) {
 
 ` + mapping_feedback_mappings
 
+		// noinspection JSUnresolvedReference
 		feedbacks +=
 			`export type FeedbacksSchema = {
 	connected: {
@@ -217,8 +403,14 @@ for (const chapter of chapters) {
 	}
 }
 
-mapping_buttons +=
-	"]\n\nexport default buttons\n\nexport const maxLogicalIndex = Math.max(\n	...buttons.map((option) => option.isLogical).filter((option) => typeof option === 'number'),\n)\n"
+mapping_buttons += `]
+
+export default buttons
+
+export const maxLogicalIndex = Math.max(
+\t...buttons.filter((option) => option.type === 'indexed').map((option) => option.values.length - 1),
+)
+`
 mapping_enums += ']\n\nexport default enums\n'
 mapping_feedback_mappings += ']\n\nexport default feedbackMappings\n'
 mapping_logical_mappings_enum +=

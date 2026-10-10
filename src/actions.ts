@@ -4,13 +4,27 @@ import enums from './mapping/enums.js'
 import LogicalMappingsEnum, { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'
 import sliders from './mapping/sliders.js'
 import toggles from './mapping/toggles.js'
-import { DefaultToggleDropdownOption, ToggleDropdownOptions } from './constants.js'
+import {
+	DefaultToggleDropdownOption,
+	ToggleDropdownOptions,
+	SEPERATOR,
+	LOGICAL,
+	LOGICAL_PREFIX,
+	INDEX,
+	INDEX_PREFIX,
+} from './constants.js'
+
+const SPLIT_SEPERATOR = `split($(options:option), "${SEPERATOR}")`
+const IS_LOGICAL_CONDITION = `[0] === "${LOGICAL}"`
+const IS_LOGICAL_EXPRESSION = `${SPLIT_SEPERATOR}${IS_LOGICAL_CONDITION}`
+const IS_INDEX_EXPRESSION = `split = ${SPLIT_SEPERATOR}; split[0] === "${INDEX}" || (split${IS_LOGICAL_CONDITION} && split[1] === "${INDEX}")`
 
 export type ActionsSchema = {
 	toggle: {
 		options: {
 			option: string
 			logical: LogicalMappingsEnum
+			index: number
 			value: number
 		}
 	}
@@ -25,12 +39,14 @@ export type ActionsSchema = {
 		options: {
 			option: string
 			logical: LogicalMappingsEnum
+			index: number
 		}
 	}
 	set_slider: {
 		options: {
 			option: string
 			logical: LogicalMappingsEnum
+			index: number
 			value: number
 		}
 	}
@@ -49,7 +65,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					id: 'option',
 					label: 'Option',
 					choices: toggles.map((option) => ({
-						id: (option.isLogical === true ? 'LOGICAL__' : option.isLogical ? 'INDEX__' : '') + option.id,
+						id: (option.isLogical ? LOGICAL_PREFIX : '') + (option.type == 'indexed' ? INDEX_PREFIX : '') + option.id,
 						label: option.label,
 					})),
 					disableAutoExpression: true,
@@ -59,9 +75,18 @@ export function UpdateActions(self: ModuleInstance): void {
 					type: 'dropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
-					isVisibleExpression: 'substr($(options:option), 0, 9) === "LOGICAL__"',
+					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
 					default: 0,
+				},
+				{
+					type: 'number',
+					id: 'index',
+					label: 'Index',
+					isVisibleExpression: IS_INDEX_EXPRESSION,
+					default: 0,
+					min: 0,
+					max: maxLogicalIndex,
 				},
 				{
 					type: 'dropdown',
@@ -73,7 +98,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				self.ToggleOption(action.options.option, action.options.logical, action.options.value)
+				self.ToggleOption(action.options.option, action.options.logical, action.options.index, action.options.value)
 			},
 		},
 		press_button: {
@@ -84,7 +109,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					id: 'option',
 					label: 'Option',
 					choices: buttons.map((option) => ({
-						id: (option.isLogical === true ? 'LOGICAL__' : option.isLogical ? 'INDEX__' : '') + option.id,
+						id: (option.isLogical ? LOGICAL_PREFIX : '') + (option.type == 'indexed' ? INDEX_PREFIX : '') + option.id,
 						label: option.label,
 					})),
 					disableAutoExpression: true,
@@ -94,7 +119,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					type: 'dropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
-					isVisibleExpression: 'substr($(options:option), 0, 9) === "LOGICAL__"',
+					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
 					default: 0,
 				},
@@ -102,14 +127,14 @@ export function UpdateActions(self: ModuleInstance): void {
 					type: 'number',
 					id: 'index',
 					label: 'Index',
-					isVisibleExpression: 'substr($(options:option), 0, 7) === "INDEX__"',
+					isVisibleExpression: IS_INDEX_EXPRESSION,
 					default: 0,
 					min: 0,
 					max: maxLogicalIndex,
 				},
 			],
 			callback: async (action) => {
-				self.PressButton(action.options.option, action.options.logical, action.options?.index)
+				self.PressButton(action.options.option, action.options.logical, action.options.index)
 			},
 		},
 		set_enum: {
@@ -120,7 +145,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					id: 'option',
 					label: 'Option',
 					choices: enums.map((option) => ({
-						id: (option.isLogical === true ? 'LOGICAL__' : option.isLogical ? 'INDEX__' : '') + option.id,
+						id: (option.isLogical ? LOGICAL_PREFIX : '') + (option.type == 'indexed' ? INDEX_PREFIX : '') + option.id,
 						label: option.label,
 					})),
 					disableAutoExpression: true,
@@ -130,13 +155,22 @@ export function UpdateActions(self: ModuleInstance): void {
 					type: 'dropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
-					isVisibleExpression: 'substr($(options:option), 0, 9) === "LOGICAL__"',
+					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
 					default: 0,
 				},
+				{
+					type: 'number',
+					id: 'index',
+					label: 'Index',
+					isVisibleExpression: IS_INDEX_EXPRESSION,
+					default: 0,
+					min: 0,
+					max: maxLogicalIndex,
+				},
 			],
 			callback: async (action) => {
-				self.SetEnum(action.options.option, action.options.logical)
+				self.SetEnum(action.options.option, action.options.logical, action.options.index)
 			},
 		},
 		set_slider: {
@@ -147,7 +181,7 @@ export function UpdateActions(self: ModuleInstance): void {
 					id: 'option',
 					label: 'Option',
 					choices: sliders.map((option) => ({
-						id: (option.isLogical === true ? 'LOGICAL__' : option.isLogical ? 'INDEX__' : '') + option.id,
+						id: (option.isLogical ? LOGICAL_PREFIX : '') + (option.type == 'indexed' ? INDEX_PREFIX : '') + option.id,
 						label: option.label,
 					})),
 					disableAutoExpression: true,
@@ -157,9 +191,18 @@ export function UpdateActions(self: ModuleInstance): void {
 					type: 'dropdown',
 					id: 'logical',
 					label: 'Logical Mapping',
-					isVisibleExpression: 'substr($(options:option), 0, 9) === "LOGICAL__"',
+					isVisibleExpression: IS_LOGICAL_EXPRESSION,
 					choices: LogicalMappingsDropdownOptions,
 					default: 0,
+				},
+				{
+					type: 'number',
+					id: 'index',
+					label: 'Index',
+					isVisibleExpression: IS_INDEX_EXPRESSION,
+					default: 0,
+					min: 0,
+					max: maxLogicalIndex,
 				},
 				{
 					type: 'number',
@@ -171,11 +214,7 @@ export function UpdateActions(self: ModuleInstance): void {
 				},
 			],
 			callback: async (action) => {
-				self.SetSlider(
-					action.options.option,
-					action.options?.logical ? action.options.logical : undefined,
-					action.options.value,
-				)
+				self.SetSlider(action.options.option, action.options.logical, action.options.index, action.options.value)
 			},
 		},
 		reset: {
