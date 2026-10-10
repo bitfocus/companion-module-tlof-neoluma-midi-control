@@ -1,4 +1,10 @@
-import { createModuleLogger, InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
+import {
+	createModuleLogger,
+	InstanceBase,
+	InstanceStatus,
+	type InstanceTypes,
+	type SomeCompanionConfigField,
+} from '@companion-module/base'
 import { GetConfigFields, type ModuleConfig } from './config.js'
 import { defaultValues, UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
@@ -15,7 +21,7 @@ import toggles from './mapping/toggles.js'
 import sliders from './mapping/sliders.js'
 import buttons from './mapping/buttons.js'
 import enums from './mapping/enums.js'
-import type LogicalMappingsEnum from './mapping/logical_mappings_enum.js'
+import { type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
 import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mappings.js'
 import type { LogicalMapping, MappingData, NumberInfo, SliderMappingData } from './mapping/mapping_data.js'
 import { VRC_EDITOR_PATH, VRC_PATH } from './logPaths.js'
@@ -23,7 +29,7 @@ import { Tail } from 'tail'
 
 const tailLogger = createModuleLogger('TailUtil')
 
-export type ModuleSchema = {
+export interface ModuleSchema extends InstanceTypes {
 	config: ModuleConfig
 	secrets: undefined
 	actions: ActionsSchema

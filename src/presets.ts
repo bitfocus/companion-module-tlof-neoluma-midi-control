@@ -1,11 +1,16 @@
 import type { ModuleSchema } from './main.js'
 import type ModuleInstance from './main.js'
-import type { CompanionPresetDefinitions, CompanionPresetSection } from '@companion-module/base'
+import type {
+	CompanionFeedbackButtonStyleResult,
+	CompanionPresetDefinitions,
+	CompanionPresetSection,
+	SomePresetSimpleFeedbackEntry,
+} from '@companion-module/base'
 import toggles from './mapping/toggles.js'
 import buttons from './mapping/buttons.js'
 import sliders from './mapping/sliders.js'
 import enums from './mapping/enums.js'
-import feedbackMappings from './mapping/feedback_mappings.js'
+import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mappings.js'
 import type {
 	ChannelMappingData,
 	IndexedLogicalMapping,
@@ -14,7 +19,8 @@ import type {
 	MappingData,
 } from './mapping/mapping_data.js'
 import { DefaultToggleDropdownOption, INDEX_PREFIX, LOGICAL_PREFIX } from './constants.js'
-import { LogicalMappingsDropdownValues } from './mapping/logical_mappings_enum.js'
+import { LogicalMappingsDropdownValues, type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
+import { isEqual } from './globals.js'
 
 type unroll_indexed_inner_type<T = number> =
 	| (ChannelMappingData<T> & { index: null })
@@ -64,6 +70,46 @@ export function unroll_indexed<T>(data: MappingData<T>[]): unroll_indexed_inner_
 	}
 
 	return data.flatMap(mapping)
+}
+
+function getFeedback<T extends FeedbackMappings>(
+	feedbackMapping: T,
+	style: CompanionFeedbackButtonStyleResult,
+	value: number,
+	logical: LogicalMappingsEnum,
+	index: number,
+): SomePresetSimpleFeedbackEntry<ModuleSchema> {
+	if (feedbackMapping.sectionType === 'Logical')
+		return {
+			feedbackId: feedbackMapping.name,
+			options: {
+				value: value,
+				logical: logical,
+			},
+			style: style,
+		}
+	if (feedbackMapping.sectionType === 'None') {
+		const options = {
+			value: value,
+		}
+		//WTF?
+		switch (feedbackMapping.type) {
+			default:
+				return { feedbackId: feedbackMapping.name, options: options, style: style }
+			case 'Slider':
+				return { feedbackId: feedbackMapping.name, options: options, style: style }
+		}
+	}
+
+	isEqual<typeof feedbackMapping.type & 'Enum', never>()
+	return {
+		feedbackId: feedbackMapping.name,
+		options: {
+			value: value,
+			index: index,
+		},
+		style: style,
+	}
 }
 
 function UpdatePresets(self: ModuleInstance): void {
@@ -242,46 +288,19 @@ function UpdatePresets(self: ModuleInstance): void {
 			(mapping) => mapping.type === 'Toggle' && mapping.name === option.enum,
 		)
 		if (feedbackMapping) {
-			if (option.isLogical)
-				presets[id].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value: 1,
-						logical: 0,
-					},
-					style: {
+			presets[id].feedbacks.push(
+				getFeedback(
+					feedbackMapping,
+					{
 						color: 0xffffff,
 						bgcolor: 0xff0000,
 					},
-				})
-			else if (typeof option.index === 'number' || feedbackMapping.hasSections !== 'None')
-				presets[id].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value: 1,
-						index:
-							option.index ??
-							result.filter((toggle) => toggle.enum === option.enum).findIndex((toggle) => toggle.id == option.id),
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
-			else
-				presets[id].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value: 1,
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
+					1,
+					0,
+					option.index ??
+						result.filter((toggle) => toggle.enum === option.enum).findIndex((toggle) => toggle.id == option.id),
+				),
+			)
 		}
 
 		const def = structure[0].definitions.find(
@@ -394,35 +413,19 @@ function UpdatePresets(self: ModuleInstance): void {
 
 		const feedbackMapping = feedbackMappings.find((mapping) => mapping.type === 'Enum' && mapping.name === option.enum)
 		if (feedbackMapping) {
-			if (option.isLogical)
-				presets[id].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value:
-							option.index ??
-							result.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
-						logical: 0,
-					},
-					style: {
+			presets[id].feedbacks.push(
+				getFeedback(
+					feedbackMapping,
+					{
 						color: 0xffffff,
 						bgcolor: 0xff0000,
 					},
-				})
-			else
-				presets[id].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value:
-							option.index ??
-							result.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
+					option.index ??
+						result.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
+					0,
+					0,
+				),
+			)
 		}
 
 		const def = structure[0].definitions.find(
@@ -442,6 +445,44 @@ function UpdatePresets(self: ModuleInstance): void {
 			(typeof option.index === 'number' ? '_' + option.index : '')
 		const indexes = sliders.filter((slider) => slider.enum === option.enum)
 		const index = option.index ?? indexes.findIndex((slider) => slider.id == option.id)
+		const feedbacks: SomePresetSimpleFeedbackEntry<ModuleSchema>[] = [
+			{
+				feedbackId: 'connected',
+				options: {},
+				style: {
+					color: 0x000000,
+					bgcolor: 0xb8b8b8,
+				},
+			},
+		]
+
+		const feedbackMapping = feedbackMappings.find((mapping) => {
+			if (mapping.type !== 'Slider') return false
+			if (mapping.name !== option.enum) return false
+			if (option.isLogical && mapping.sectionType === 'None') return false
+			// noinspection RedundantIfStatementJS
+			if (!option.isLogical && mapping.sectionType !== 'None') return false
+
+			return true
+		})
+		if (feedbackMapping) {
+			feedbacks.push(
+				getFeedback(
+					feedbackMapping,
+					{
+						color: 0xffffff,
+						bgcolor: 0xff0000,
+					},
+					127,
+					0,
+					option.index ??
+						result_sliders
+							.filter((slider) => slider.enum === option.enum)
+							.findIndex((slider) => slider.id == option.id),
+				),
+			)
+		}
+
 		presets[id] = {
 			type: 'alternatives',
 			variants: [
@@ -558,72 +599,9 @@ function UpdatePresets(self: ModuleInstance): void {
 							up: [],
 						},
 					],
-					feedbacks: [
-						{
-							feedbackId: 'connected',
-							options: {},
-							style: {
-								color: 0x000000,
-								bgcolor: 0xb8b8b8,
-							},
-						},
-					],
+					feedbacks: feedbacks,
 				},
 			],
-		}
-
-		const feedbackMapping = feedbackMappings.find((mapping) => {
-			if (mapping.type !== 'Slider') return false
-			if (mapping.name !== option.enum) return false
-			if (option.isLogical && mapping.hasSections === 'None') return false
-			// noinspection RedundantIfStatementJS
-			if (!option.isLogical && mapping.hasSections !== 'None') return false
-
-			return true
-		})
-		if (feedbackMapping) {
-			if (option.isLogical)
-				presets[id].variants[1].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						logical: 0,
-						value: 127,
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
-			else if (typeof option.index === 'number' || feedbackMapping.hasSections !== 'None')
-				presets[id].variants[1].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						index:
-							option.index ??
-							result_sliders
-								.filter((slider) => slider.enum === option.enum)
-								.findIndex((slider) => slider.id == option.id),
-						value: 127,
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
-			else
-				presets[id].variants[1].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value: 127,
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
 		}
 
 		const def = structure[0].definitions.find(
