@@ -20,7 +20,7 @@ import enums from './dist/mapping/enums.js'
 // eslint-disable-next-line n/no-unpublished-import
 import sliders from './dist/mapping/sliders.js'
 // eslint-disable-next-line n/no-unpublished-import
-import LogicalMappingsEnum, { LogicalMappingsDropdownValues } from './dist/mapping/logical_mappings_enum.js'
+import { LogicalMappingsDropdownValues } from './dist/mapping/logical_mappings_enum.js'
 // eslint-disable-next-line n/no-unpublished-import
 import feedbackMappings from './dist/mapping/feedback_mappings.js'
 // eslint-disable-next-line n/no-unpublished-import
@@ -312,7 +312,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 						...defaultTextLayer,
 						text: {
 							isExpression: false,
-							value: `Toggle - ${option.label}` + (option.isLogical === true ? ' - ' + LogicalMappingsEnum[0] : ''),
+							value: `Toggle - ${option.label}` + (option.isLogical === true ? ' - All Sections' : ''),
 						},
 					},
 				],
@@ -416,7 +416,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 						...defaultTextLayer,
 						text: {
 							isExpression: false,
-							value: `Button - ${option.label}` + (option.isLogical === true ? ' - ' + LogicalMappingsEnum[0] : ''),
+							value: `Button - ${option.label}` + (option.isLogical === true ? ' - All Sections' : ''),
 						},
 					},
 				],
@@ -502,7 +502,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 						...defaultTextLayer,
 						text: {
 							isExpression: false,
-							value: `Enum - ${option.label}` + (option.isLogical ? ' - ' + LogicalMappingsEnum[0] : ''),
+							value: `Enum - ${option.label}` + (option.isLogical ? ' - All Sections' : ''),
 						},
 					},
 				],
@@ -605,7 +605,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 						...defaultTextLayer,
 						text: {
 							isExpression: false,
-							value: `Slider - ${option.label}` + (option.isLogical === true ? ' - ' + LogicalMappingsEnum[0] : ''),
+							value: `Slider - ${option.label}` + (option.isLogical === true ? ' - All Sections' : ''),
 						},
 					},
 				],
