@@ -7,6 +7,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 2,
@@ -14,6 +16,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 3,
@@ -21,6 +25,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 4,
@@ -28,6 +34,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 5,
@@ -35,6 +43,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 6,
@@ -42,6 +52,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-7',
+		dataMin: 0,
+		dataMax: 7,
 	},
 	{
 		number: 7,
@@ -49,6 +61,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 8,
@@ -56,6 +70,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 9,
@@ -63,6 +79,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 10,
@@ -70,6 +88,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-7',
+		dataMin: 0,
+		dataMax: 7,
 	},
 	{
 		number: 11,
@@ -77,6 +97,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 12,
@@ -84,6 +106,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 13,
@@ -91,6 +115,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 14,
@@ -98,6 +124,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-15',
+		dataMin: 0,
+		dataMax: 15,
 	},
 	{
 		number: 15,
@@ -105,6 +133,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 16,
@@ -112,6 +142,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 17,
@@ -119,6 +151,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 18,
@@ -126,6 +160,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 19,
@@ -133,6 +169,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 20,
@@ -140,6 +178,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 21,
@@ -147,6 +187,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 22,
@@ -154,6 +196,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 23,
@@ -161,6 +205,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 24,
@@ -168,6 +214,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 25,
@@ -175,6 +223,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 26,
@@ -182,6 +232,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 27,
@@ -189,6 +241,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-15',
+		dataMin: 0,
+		dataMax: 15,
 	},
 	{
 		number: 28,
@@ -196,6 +250,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 29,
@@ -203,6 +259,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 30,
@@ -210,6 +268,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-7',
+		dataMin: 0,
+		dataMax: 7,
 	},
 	{
 		number: 31,
@@ -217,6 +277,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 32,
@@ -224,6 +286,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 33,
@@ -231,6 +295,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 34,
@@ -238,6 +304,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-15',
+		dataMin: 0,
+		dataMax: 15,
 	},
 	{
 		number: 35,
@@ -245,6 +313,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 36,
@@ -252,6 +322,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 37,
@@ -259,6 +331,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-7',
+		dataMin: 0,
+		dataMax: 7,
 	},
 	{
 		number: 38,
@@ -266,6 +340,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 39,
@@ -273,6 +349,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Enum',
 		data: '0-15',
+		dataMin: 0,
+		dataMax: 15,
 	},
 	{
 		number: 40,
@@ -280,6 +358,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 41,
@@ -287,6 +367,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 42,
@@ -294,6 +376,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Enum',
 		data: '0-4',
+		dataMin: 0,
+		dataMax: 4,
 	},
 	{
 		number: 43,
@@ -301,6 +385,8 @@ export const feedbackMappings = [
 		hasSections: 'Logical',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 44,
@@ -308,6 +394,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 45,
@@ -315,6 +403,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 46,
@@ -322,6 +412,8 @@ export const feedbackMappings = [
 		hasSections: 'Section',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 47,
@@ -329,6 +421,8 @@ export const feedbackMappings = [
 		hasSections: 'Side',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 48,
@@ -336,6 +430,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 49,
@@ -343,6 +439,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 50,
@@ -350,6 +448,8 @@ export const feedbackMappings = [
 		hasSections: 'None',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 51,
@@ -357,6 +457,8 @@ export const feedbackMappings = [
 		hasSections: 'SetColor',
 		type: 'Toggle',
 		data: '0-1',
+		dataMin: 0,
+		dataMax: 1,
 	},
 	{
 		number: 52,
@@ -364,6 +466,8 @@ export const feedbackMappings = [
 		hasSections: 'Color',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 	{
 		number: 53,
@@ -371,6 +475,8 @@ export const feedbackMappings = [
 		hasSections: 'AudioLink',
 		type: 'Slider',
 		data: '0-127',
+		dataMin: 0,
+		dataMax: 127,
 	},
 ] as const
 

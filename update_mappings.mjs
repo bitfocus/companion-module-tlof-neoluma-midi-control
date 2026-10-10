@@ -290,7 +290,7 @@ function add_mapping(Type, string) {
 			}
 			const Data = `${Min}-${Max}`
 			const { 'section-type': HasSections, type: Type, name: Name, number: nNumber } = feedback
-			mapping_feedback_mappings += `\t{\n\t\tnumber: ${nNumber},\n\t\tname: '${Name}',\n\t\thasSections: '${HasSections}',\n\t\ttype: '${Type}',\n\t\tdata: '${Data}',\n\t},\n`
+			mapping_feedback_mappings += `\t{\n\t\tnumber: ${nNumber},\n\t\tname: '${Name}',\n\t\thasSections: '${HasSections}',\n\t\ttype: '${Type}',\n\t\tdata: '${Data}',\n\t\tdataMin: ${Min},\n\t\tdataMax: ${Max}\n\t},\n`
 
 			if (HasSections === 'None') {
 				variablesNormal[0] += `\t${Name}: number\n`
