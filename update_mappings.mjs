@@ -17,7 +17,7 @@ import mappings from './world-docs/MIDI/Mappings.json' with { type: 'json' }
 let mapping_buttons =
 		"import type { MappingData } from './mapping_data.js'\n\nexport const buttons: MappingData[] = [\n",
 	mapping_enums = "import type { MappingData } from './mapping_data.js'\n\nexport const enums: MappingData[] = [\n",
-	mapping_feedback_mappings = `export type FeedbackMappings = typeof feedbackMappings[number]
+	mapping_feedback_mappings = `export type FeedbackMappings = (typeof feedbackMappings)[number]
 
 export const feedbackMappings = [
 `,
@@ -333,7 +333,7 @@ function add_mapping(Type, string) {
 	}
 }
 
-mapping_buttons += `]
+mapping_buttons += `] as const
 
 export default buttons
 
@@ -342,7 +342,7 @@ export const maxLogicalIndex = Math.max(
 )
 `
 mapping_enums += '] as const\n\nexport default enums\n'
-mapping_feedback_mappings += ']\n\nexport default feedbackMappings\n'
+mapping_feedback_mappings += '] as const\n\nexport default feedbackMappings\n'
 mapping_logical_mappings_enum += `\t*/
 }
 
@@ -357,8 +357,8 @@ export const LogicalMappingsDropdownValues = LogicalMappingsDropdownOptions.map(
 
 export default LogicalMappingsEnum
 `
-mapping_sliders += ']\n\nexport default sliders\n'
-mapping_toggles += ']\n\nexport default toggles\n'
+mapping_sliders += '] as const\n\nexport default sliders\n'
+mapping_toggles += '] as const\n\nexport default toggles\n'
 
 variables += '}\n'
 
