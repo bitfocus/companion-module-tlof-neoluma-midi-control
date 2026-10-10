@@ -9,6 +9,7 @@ import type {
 	SomeCompanionFeedbackInputField,
 } from '@companion-module/base'
 import { isEqual } from './globals.js'
+import { maxLogicalIndex } from './mapping/buttons.js'
 
 type ExtractField<T, F extends keyof T> = Pick<T, F>[F]
 
@@ -54,7 +55,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				label: 'Value',
 				default: 1,
 				min: 0,
-				max: 1,
+				max: feedbackMapping.type === 'Enum' ? maxLogicalIndex : 1,
 			}
 			const logical: SomeCompanionFeedbackInputField<'logical'> = {
 				type: 'dropdown',
@@ -69,7 +70,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				label: 'Index',
 				default: 0,
 				min: 0,
-				max: 16,
+				max: maxLogicalIndex,
 			}
 			type definition<T extends string> = CompanionFeedbackDefinition<FullFeedback<T>>
 
