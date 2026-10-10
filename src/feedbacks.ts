@@ -1,5 +1,5 @@
 import type ModuleInstance from './main.js'
-import LogicalMappingsEnum, { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'
+import { LogicalMappingsDropdownOptions, type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
 
 import { feedbackMappings, type FeedbackMappings } from './mapping/feedback_mappings.js'
 import type {
@@ -16,8 +16,8 @@ type ExtractField<T, F extends keyof T> = Pick<T, F>[F]
 export type FeedbackOptions<T extends string> =
 	Extract<FeedbackMappings, { name: T }> extends never
 		? never
-		: Extract<FeedbackMappings, { hasSections: 'Logical'; name: T }> extends never
-			? Extract<FeedbackMappings, { hasSections: 'None'; name: T } | { type: 'Enum'; name: T }> extends never
+		: Extract<FeedbackMappings, { sectionType: 'Logical'; name: T }> extends never
+			? Extract<FeedbackMappings, { sectionType: 'None'; name: T } | { type: 'Enum'; name: T }> extends never
 				? { value: number; index: number }
 				: { value: number }
 			: { value: number; logical: LogicalMappingsEnum }
@@ -54,8 +54,8 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				id: 'value',
 				label: 'Value',
 				default: 1,
-				min: feedbackMapping.dataMin,
-				max: feedbackMapping.dataMax,
+				min: feedbackMapping.data.start,
+				max: feedbackMapping.data.end,
 			}
 			const logical: SomeCompanionFeedbackInputField<'logical'> = {
 				type: 'dropdown',
@@ -74,7 +74,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 			}
 			type definition<T extends string> = CompanionFeedbackDefinition<FullFeedback<T>>
 
-			if (feedbackMapping.hasSections === 'Logical') {
+			if (feedbackMapping.sectionType === 'Logical') {
 				const ret: readonly [typeof feedbackMapping.name, definition<typeof feedbackMapping.name>] = [
 					feedbackMapping.name,
 					{
@@ -90,15 +90,13 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 							self.getVariableValue(
 								feedbackMapping.name +
 									'_' +
-									(feedback.options.logical < LogicalMappingsEnum.InScreen_Left
-										? '0' + feedback.options.logical
-										: feedback.options.logical),
+									(feedback.options.logical < 10 ? '0' + feedback.options.logical : feedback.options.logical),
 							) === feedback.options.value,
 					},
 				]
 				return ret
 			}
-			if (feedbackMapping.hasSections !== 'None') {
+			if (feedbackMapping.sectionType !== 'None') {
 				isEqual<typeof feedbackMapping.type & 'Enum', never>()
 				const ret: readonly [typeof feedbackMapping.name, definition<typeof feedbackMapping.name>] = [
 					feedbackMapping.name,

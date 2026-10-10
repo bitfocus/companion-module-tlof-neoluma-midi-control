@@ -1,9 +1,10 @@
 import type ModuleInstance from './main.js'
 import buttons, { maxLogicalIndex } from './mapping/buttons.js'
 import enums from './mapping/enums.js'
-import LogicalMappingsEnum, {
+import {
 	LogicalMappingsDropdownOptions,
 	LogicalMappingsDropdownValues,
+	type LogicalMappingsEnum,
 } from './mapping/logical_mappings_enum.js'
 import sliders from './mapping/sliders.js'
 import toggles from './mapping/toggles.js'

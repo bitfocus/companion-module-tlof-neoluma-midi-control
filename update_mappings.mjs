@@ -17,19 +17,15 @@ import mappings from './world-docs/MIDI/Mappings.json' with { type: 'json' }
 let mapping_buttons =
 		"import type { MappingData } from './mapping_data.js'\n\nexport const buttons: MappingData[] = [\n",
 	mapping_enums = "import type { MappingData } from './mapping_data.js'\n\nexport const enums: MappingData[] = [\n",
-	mapping_feedback_mappings = `export type FeedbackMappings = (typeof feedbackMappings)[number]
-
-export const feedbackMappings = [
-`,
-	mapping_logical_mappings_enum = 'export enum LogicalMappingsEnum {\n',
 	mapping_sliders =
 		"import type { SliderMappingData } from './mapping_data.js'\n\nconst ALL = 'ALL'\n\nexport const sliders: SliderMappingData[] = [\n",
 	mapping_toggles = "import type { MappingData } from './mapping_data.js'\n\nexport const toggles: MappingData[] = [\n",
 	variables = `import type ModuleInstance from './main.js'\n\n`
 
 /**
- * @param Type string
- * @param string string
+ * @param {string} Type
+ * @param {string} string
+ * @return {void}
  */
 function add_mapping(Type, string) {
 	if (Type === 'Button') mapping_buttons += string
@@ -256,41 +252,12 @@ function add_mapping(Type, string) {
 		}
 	}
 	{
-		console.log('Processing logical mappings...')
-		let foundReserved = false
-		for (const value of mappings.rangedNames) {
-			const { index: nNumber, section: Section, side: Side } = value
-			if (Section === 'Section' || Section === '-') continue // Table header
-			if (Section === 'RESERVED' && foundReserved === false) {
-				mapping_logical_mappings_enum += '\t/*\n'
-				foundReserved = true
-			}
-			mapping_logical_mappings_enum += `\t${Section}_${Side} = ${nNumber},\n`
-		}
-	}
-	{
 		console.log('Processing midi feedback...')
 		let variablesNormal = ['', ''],
 			variablesLogical = ['', ''],
 			variablesOther = ['', '']
 		for (const feedback of mappings.feedback) {
-			let Min, Max
-			switch (feedback.data.type) {
-				case 'Bool':
-					Min = 0
-					Max = 1
-					break
-				case 'Range':
-					Min = feedback.data.start
-					Max = feedback.data.end
-					break
-				default:
-					console.warn('Unknown data type: ' + feedback.data.type)
-					continue
-			}
-			const Data = `${Min}-${Max}`
-			const { 'section-type': HasSections, type: Type, name: Name, number: nNumber } = feedback
-			mapping_feedback_mappings += `\t{\n\t\tnumber: ${nNumber},\n\t\tname: '${Name}',\n\t\thasSections: '${HasSections}',\n\t\ttype: '${Type}',\n\t\tdata: '${Data}',\n\t\tdataMin: ${Min},\n\t\tdataMax: ${Max}\n\t},\n`
+			const { sectionType: HasSections, name: Name } = feedback
 
 			if (HasSections === 'None') {
 				variablesNormal[0] += `\t${Name}: number\n`
@@ -342,21 +309,6 @@ export const maxLogicalIndex = Math.max(
 )
 `
 mapping_enums += '] as const\n\nexport default enums\n'
-mapping_feedback_mappings += '] as const\n\nexport default feedbackMappings\n'
-mapping_logical_mappings_enum += `\t*/
-}
-
-export const LogicalMappingsDropdownOptions = Object.keys(LogicalMappingsEnum)
-\t.filter((key) => !isNaN(Number(key)))
-\t.map((option) => ({
-\t\tid: Number(option),
-\t\tlabel: LogicalMappingsEnum[Number(option)],
-\t}))
-
-export const LogicalMappingsDropdownValues = LogicalMappingsDropdownOptions.map((v) => v.id)
-
-export default LogicalMappingsEnum
-`
 mapping_sliders += '] as const\n\nexport default sliders\n'
 mapping_toggles += '] as const\n\nexport default toggles\n'
 
@@ -364,15 +316,18 @@ variables += '}\n'
 
 await fs.writeFile(path.resolve('./src/mapping/buttons.ts'), mapping_buttons, { encoding: 'utf-8' })
 await fs.writeFile(path.resolve('./src/mapping/enums.ts'), mapping_enums, { encoding: 'utf-8' })
-await fs.writeFile(path.resolve('./src/mapping/feedback_mappings.ts'), mapping_feedback_mappings, {
-	encoding: 'utf-8',
-})
-await fs.writeFile(path.resolve('./src/mapping/logical_mappings_enum.ts'), mapping_logical_mappings_enum, {
-	encoding: 'utf-8',
-})
 await fs.writeFile(path.resolve('./src/mapping/sliders.ts'), mapping_sliders, { encoding: 'utf-8' })
 await fs.writeFile(path.resolve('./src/mapping/toggles.ts'), mapping_toggles, { encoding: 'utf-8' })
 
 await fs.writeFile(path.resolve('./src/variables.ts'), variables, { encoding: 'utf-8' })
+await fs.writeFile(
+	path.resolve('./src/mapping/mappings.ts'),
+	`/* eslint-disable */ // This file is automatically "generated"/copied by the update_mappings.mjs script. Sadly this cannot be done as a simple json import, because the typing of json imports in ts is simply too weak (matches that of non-'as const' types ?)
+export const mappings = ${await fs.readFile(path.resolve('./world-docs/MIDI/Mappings.json'), { encoding: 'utf-8' })} as const
+
+export default mappings
+`,
+	{ encoding: 'utf-8' },
+)
 
 /*@end @*/

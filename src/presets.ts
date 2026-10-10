@@ -20,6 +20,7 @@ import type {
 } from './mapping/mapping_data.js'
 import { DefaultToggleDropdownOption, INDEX_PREFIX, LOGICAL_PREFIX } from './constants.js'
 import { LogicalMappingsDropdownValues, type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
+import { isEqual } from './globals.js'
 
 type unroll_indexed_inner_type<T = number> =
 	| (ChannelMappingData<T> & { index: null })
@@ -78,7 +79,7 @@ function getFeedback<T extends FeedbackMappings>(
 	logical: LogicalMappingsEnum,
 	index: number,
 ): SomePresetSimpleFeedbackEntry<ModuleSchema> {
-	if (feedbackMapping.hasSections === 'Logical')
+	if (feedbackMapping.sectionType === 'Logical')
 		return {
 			feedbackId: feedbackMapping.name,
 			options: {
@@ -87,7 +88,7 @@ function getFeedback<T extends FeedbackMappings>(
 			},
 			style: style,
 		}
-	if (feedbackMapping.type === 'Enum' || feedbackMapping.hasSections === 'None') {
+	if (feedbackMapping.sectionType === 'None') {
 		const options = {
 			value: value,
 		}
@@ -100,6 +101,7 @@ function getFeedback<T extends FeedbackMappings>(
 		}
 	}
 
+	isEqual<typeof feedbackMapping.type & 'Enum', never>()
 	return {
 		feedbackId: feedbackMapping.name,
 		options: {
@@ -294,9 +296,9 @@ function UpdatePresets(self: ModuleInstance): void {
 						bgcolor: 0xff0000,
 					},
 					1,
+					0,
 					option.index ??
 						result.filter((toggle) => toggle.enum === option.enum).findIndex((toggle) => toggle.id == option.id),
-					0,
 				),
 			)
 		}
@@ -457,9 +459,9 @@ function UpdatePresets(self: ModuleInstance): void {
 		const feedbackMapping = feedbackMappings.find((mapping) => {
 			if (mapping.type !== 'Slider') return false
 			if (mapping.name !== option.enum) return false
-			if (option.isLogical && mapping.hasSections === 'None') return false
+			if (option.isLogical && mapping.sectionType === 'None') return false
 			// noinspection RedundantIfStatementJS
-			if (!option.isLogical && mapping.hasSections !== 'None') return false
+			if (!option.isLogical && mapping.sectionType !== 'None') return false
 
 			return true
 		})
