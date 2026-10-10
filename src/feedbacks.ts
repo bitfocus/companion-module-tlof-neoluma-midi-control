@@ -54,8 +54,8 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				id: 'value',
 				label: 'Value',
 				default: 1,
-				min: 0,
-				max: feedbackMapping.type === 'Enum' ? maxLogicalIndex : 1,
+				min: feedbackMapping.dataMin,
+				max: feedbackMapping.dataMax,
 			}
 			const logical: SomeCompanionFeedbackInputField<'logical'> = {
 				type: 'dropdown',
