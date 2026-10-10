@@ -87,7 +87,7 @@ function getFeedback<T extends FeedbackMappings>(
 			},
 			style: style,
 		}
-	if (feedbackMapping.hasSections === 'None') {
+	if (feedbackMapping.type === 'Enum' || feedbackMapping.hasSections === 'None') {
 		const options = {
 			value: value,
 		}

@@ -8,15 +8,24 @@ import type {
 	CompanionFeedbackDefinitions,
 	SomeCompanionFeedbackInputField,
 } from '@companion-module/base'
+import { isEqual } from './globals.js'
 
 type ExtractField<T, F extends keyof T> = Pick<T, F>[F]
 
 export type FeedbackOptions<T extends string> =
-	Extract<FeedbackMappings, { hasSections: 'Logical'; name: T }> extends never
-		? Extract<FeedbackMappings, { hasSections: 'None' | 'Logical'; name: T }> extends never
-			? { value: number; index: number }
-			: { value: number }
-		: { value: number; logical: LogicalMappingsEnum }
+	Extract<FeedbackMappings, { name: T }> extends never
+		? never
+		: Extract<FeedbackMappings, { hasSections: 'Logical'; name: T }> extends never
+			? Extract<FeedbackMappings, { hasSections: 'None'; name: T } | { type: 'Enum'; name: T }> extends never
+				? { value: number; index: number }
+				: { value: number }
+			: { value: number; logical: LogicalMappingsEnum }
+
+isEqual<FeedbackOptions<'InvalidNameNotUsed'>, never>()
+isEqual<FeedbackOptions<'AllowPortals'>, { value: number }>()
+isEqual<FeedbackOptions<'WallLines'>, { value: number }>()
+isEqual<FeedbackOptions<'SetColor'>, { value: number; index: number }>()
+isEqual<FeedbackOptions<'Gobo'>, { value: number; logical: LogicalMappingsEnum }>()
 
 export interface FullFeedback<T extends string> extends CompanionFeedbackSchema<FeedbackOptions<T>> {
 	type: 'boolean'
@@ -88,7 +97,7 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				]
 				return ret
 			}
-			if (feedbackMapping.hasSections !== 'None') {
+			if (feedbackMapping.type != 'Enum' && feedbackMapping.hasSections !== 'None') {
 				const ret: readonly [typeof feedbackMapping.name, definition<typeof feedbackMapping.name>] = [
 					feedbackMapping.name,
 					{
