@@ -16,6 +16,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v7
+        with:
+          submodules: true
       - name: Use Node.js 22.x
         # This should match the version of Node.js you have defined in the manifest.json runtime field
         uses: actions/setup-node@v6
@@ -24,15 +26,6 @@ jobs:
       - name: Prepare Environment
         run: |
           corepack enable
-      - name: Prepare Environment (For template repository)
-        # Only run this step if the repository is a template repository
-        # If you are using this in a module, you can remove this step
-        if: ${{ contains(github.repository, 'companion-module-template-') }}
-        run: |
-          # Perform an install to generate the lockfile
-          yarn install
-        env:
-          CI: false
       - name: Prepare module
         run: |
           yarn install
@@ -48,6 +41,44 @@ jobs:
           yarn lint
         env:
           CI: true
+
+  generate_page:
+    name: Generate Testing Pages
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: true
+      - name: Use Node.js 22.x
+        # This should match the version of Node.js you have defined in the manifest.json runtime field
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+      - name: Prepare Environment
+        run: |
+          corepack enable
+      - name: Prepare module
+        run: |
+          yarn install
+        env:
+          CI: true
+      - name: Build and check types
+        run: |
+          yarn build
+        env:
+          CI: true
+      - name: Run lint
+        run: |
+          node ./generate_page.mjs
+      - uses: actions/upload-artifact@v7
+        with:
+          name: test-pages
+          path: |
+            Test.companionconfig
+            Test2.companionconfig
+          if-no-files-found: error
 
   # Uncomment this to enable running unit tests
   # test:

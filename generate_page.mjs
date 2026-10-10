@@ -20,9 +20,13 @@ import enums from './dist/mapping/enums.js'
 // eslint-disable-next-line n/no-unpublished-import
 import sliders from './dist/mapping/sliders.js'
 // eslint-disable-next-line n/no-unpublished-import
-import LogicalMappingsEnum from './dist/mapping/logical_mappings_enum.js'
+import LogicalMappingsEnum, { LogicalMappingsDropdownValues } from './dist/mapping/logical_mappings_enum.js'
 // eslint-disable-next-line n/no-unpublished-import
 import feedbackMappings from './dist/mapping/feedback_mappings.js'
+// eslint-disable-next-line n/no-unpublished-import
+import { unroll_indexed } from './dist/presets.js'
+// eslint-disable-next-line n/no-unpublished-import
+import { LOGICAL_PREFIX, INDEX_PREFIX } from './dist/constants.js'
 
 const page1 = {
 	version: 12,
@@ -295,7 +299,8 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 	let y = 0
 	let x = 0
 
-	for (const option of toggles) {
+	let result = unroll_indexed(toggles)
+	for (const option of result) {
 		if (!page.page.controls[String(y)]) page.page.controls[String(y)] = {}
 
 		page.page.controls[String(y)][String(x)] = {
@@ -332,15 +337,21 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 								options: {
 									option: {
 										value:
-											(option.isLogical === true
-												? 'LOGICAL__'
-												: typeof option.isLogical === 'number'
-													? 'INDEX__'
-													: '') + option.id,
+											(option.isLogical ? LOGICAL_PREFIX : '') +
+											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
+											option.id,
 										isExpression: false,
 									},
 									logical: {
+										value: LogicalMappingsDropdownValues,
+										isExpression: false,
+									},
+									index: {
 										value: 0,
+										isExpression: false,
+									},
+									value: {
+										value: 2,
 										isExpression: false,
 									},
 								},
@@ -375,7 +386,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 				}
 			else if (option.isLogical || feedbackMapping.hasSections !== 'None')
 				feedback.options.index = {
-					value: toggles.filter((toggle) => toggle.enum === option.enum).findIndex((toggle) => toggle.id == option.id),
+					value: result.filter((toggle) => toggle.enum === option.enum).findIndex((toggle) => toggle.id === option.id),
 					isExpression: false,
 				}
 			page.page.controls[String(y)][String(x)].feedbacks.push(feedback)
@@ -392,17 +403,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 	if (x !== 0) y++
 	x = 0
 
-	const result = buttons.flatMap((item) => {
-		if (typeof item.isLogical === 'number' && item.isLogical > 0) {
-			return Array.from({ length: item.isLogical }, (_, index) => ({
-				...item,
-				isLogical: index,
-				label: item.label.replace(/ \d+-\d+$/, ' ' + index),
-			}))
-		}
-		return item
-	})
-
+	result = unroll_indexed(buttons)
 	for (const option of result) {
 		if (!page.page.controls[String(y)]) page.page.controls[String(y)] = {}
 
@@ -440,24 +441,17 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 								options: {
 									option: {
 										value:
-											(option.isLogical === true
-												? 'LOGICAL__'
-												: typeof option.isLogical === 'number'
-													? 'INDEX__'
-													: '') + option.id,
+											(option.isLogical ? LOGICAL_PREFIX : '') +
+											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
+											option.id,
 										isExpression: false,
 									},
 									logical: {
-										value: 0,
+										value: LogicalMappingsDropdownValues,
 										isExpression: false,
 									},
 									index: {
-										value:
-											typeof option.isLogical === 'number'
-												? result
-														.filter((btn) => btn.id === option.id)
-														.findIndex((btn) => btn.isLogical === option.isLogical)
-												: 0,
+										value: option.index ?? 0,
 										isExpression: false,
 									},
 								},
@@ -485,8 +479,9 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 	if (x !== 0) y++
 	x = 0
 
-	let lastEnum = enums[0].enum
-	for (const option of enums) {
+	result = unroll_indexed(enums)
+	let lastEnum = result[0]?.enum
+	for (const option of result) {
 		if (lastEnum !== option.enum) {
 			lastEnum = option.enum
 			x += 1
@@ -507,7 +502,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 						...defaultTextLayer,
 						text: {
 							isExpression: false,
-							value: `Enum - ${option.label}` + (option.isLogical === true ? ' - ' + LogicalMappingsEnum[0] : ''),
+							value: `Enum - ${option.label}` + (option.isLogical ? ' - ' + LogicalMappingsEnum[0] : ''),
 						},
 					},
 				],
@@ -532,14 +527,16 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 								options: {
 									option: {
 										value:
-											(option.isLogical === true
-												? 'LOGICAL__'
-												: typeof option.isLogical === 'number'
-													? 'INDEX__'
-													: '') + option.id,
+											(option.isLogical ? LOGICAL_PREFIX : '') +
+											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
+											option.id,
 										isExpression: false,
 									},
 									logical: {
+										value: LogicalMappingsDropdownValues,
+										isExpression: false,
+									},
+									index: {
 										value: 0,
 										isExpression: false,
 									},
@@ -564,7 +561,9 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 				definitionId: feedbackMapping.name,
 				options: {
 					value: {
-						value: enums.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
+						value: result
+							.filter((myEnum) => myEnum.enum === option.enum)
+							.findIndex((myEnum) => myEnum.id === option.id),
 						isExpression: false,
 					},
 				},
@@ -576,7 +575,7 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 				}
 			else if (option.isLogical || feedbackMapping.hasSections !== 'None')
 				feedback.options.index = {
-					value: enums.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
+					value: result.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id === option.id),
 					isExpression: false,
 				}
 			page.page.controls[String(y)][String(x)].feedbacks.push(feedback)
@@ -593,7 +592,8 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 	if (x !== 0) y++
 	x = 0
 
-	for (const option of sliders) {
+	let result_slider = unroll_indexed(sliders)
+	for (const option of result_slider) {
 		if (!page.page.controls[String(y)]) page.page.controls[String(y)] = {}
 
 		page.page.controls[String(y)][String(x)] = {
@@ -630,14 +630,16 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 								options: {
 									option: {
 										value:
-											(option.isLogical === true
-												? 'LOGICAL__'
-												: typeof option.isLogical === 'number'
-													? 'INDEX__'
-													: '') + option.id,
+											(option.isLogical ? LOGICAL_PREFIX : '') +
+											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
+											option.id,
 										isExpression: false,
 									},
 									logical: {
+										value: LogicalMappingsDropdownValues,
+										isExpression: false,
+									},
+									index: {
 										value: 0,
 										isExpression: false,
 									},
@@ -670,14 +672,16 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 					...defaultFeedbackValues.options,
 				},
 			}
-			if (option.isLogical === true)
+			if (option.isLogical)
 				feedback.options.logical = {
 					value: 0,
 					isExpression: false,
 				}
 			else if (option.isLogical || feedbackMapping.hasSections !== 'None')
 				feedback.options.index = {
-					value: sliders.filter((slider) => slider.enum === option.enum).findIndex((slider) => slider.id == option.id),
+					value:
+						option.index ??
+						result.filter((slider) => slider.enum === option.enum).findIndex((slider) => slider.id === option.id),
 					isExpression: false,
 				}
 			page.page.controls[String(y)][String(x)].feedbacks.push(feedback)
@@ -708,12 +712,14 @@ function addStuff(page, toggles, buttons, enums, sliders) {
 	return page
 }
 
+console.log('page1')
+
 const newPage1 = addStuff(
 	page1,
-	toggles.filter((o) => o.isLogical === undefined),
-	buttons.filter((o) => o.isLogical === undefined),
-	enums.filter((o) => o.isLogical === undefined),
-	sliders.filter((o) => o.isLogical === undefined),
+	toggles.filter((o) => o.class !== 'logical'),
+	buttons.filter((o) => o.class !== 'logical'),
+	enums.filter((o) => o.class !== 'logical'),
+	sliders.filter((o) => o.class !== 'logical'),
 )
 fs.writeFile('Test.companionconfig', JSON.stringify(newPage1, null, '\t'))
 
@@ -721,10 +727,10 @@ console.log('page2')
 
 const newPage2 = addStuff(
 	page2,
-	toggles.filter((o) => o.isLogical !== undefined),
-	buttons.filter((o) => o.isLogical !== undefined),
-	enums.filter((o) => o.isLogical !== undefined),
-	sliders.filter((o) => o.isLogical !== undefined),
+	toggles.filter((o) => o.class === 'logical'),
+	buttons.filter((o) => o.class === 'logical'),
+	enums.filter((o) => o.class === 'logical'),
+	sliders.filter((o) => o.class === 'logical'),
 )
 fs.writeFile('Test2.companionconfig', JSON.stringify(newPage2, null, '\t'))
 

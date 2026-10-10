@@ -1,0 +1,3 @@
+[submodule "world-docs"]
+	path = world-docs
+	url = https://github.com/The-Land-of-Future/TLOF-Club.git

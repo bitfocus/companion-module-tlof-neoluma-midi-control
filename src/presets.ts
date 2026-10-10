@@ -6,8 +6,67 @@ import buttons from './mapping/buttons.js'
 import sliders from './mapping/sliders.js'
 import enums from './mapping/enums.js'
 import feedbackMappings from './mapping/feedback_mappings.js'
+import type {
+	ChannelMappingData,
+	IndexedLogicalMapping,
+	IndexedNonLogicalMapping,
+	LogicalMappingData,
+	MappingData,
+} from './mapping/mapping_data.js'
+import { DefaultToggleDropdownOption, INDEX_PREFIX, LOGICAL_PREFIX } from './constants.js'
+import { LogicalMappingsDropdownValues } from './mapping/logical_mappings_enum.js'
 
-export function UpdatePresets(self: ModuleInstance): void {
+type unroll_indexed_inner_type<T = number> =
+	| (ChannelMappingData<T> & { index: null })
+	| (LogicalMappingData<T> & { index: null })
+	| (LogicalMappingData<T> & { index: number; outer: IndexedLogicalMapping<T> })
+	| (ChannelMappingData<T> & { index: number; outer: IndexedNonLogicalMapping<T> })
+
+export function unroll_indexed<T>(data: MappingData<T>[]): unroll_indexed_inner_type<T>[] {
+	function mapping(item: MappingData<T>): unroll_indexed_inner_type<T>[] {
+		if (item.type === 'indexed') {
+			//Even though the code is EXACTLY the same, ts wants me to duplicate them, so that each type of Indexed Values are handled separately
+			if (item.isLogical) {
+				return item.values.map((value, index) => {
+					return {
+						...value,
+						class: item.class,
+						index: index,
+						isLogical: item.isLogical,
+						enum: item.enum,
+						outer: item,
+						label: item.label + ' - ' + value.label,
+						id: item.id,
+					}
+				})
+			} else {
+				return item.values.map((value, index) => {
+					return {
+						...value,
+						class: item.class,
+						index: index,
+						isLogical: item.isLogical,
+						enum: item.enum,
+						outer: item,
+						label: item.label + ' - ' + value.label,
+						id: item.id,
+					}
+				})
+			}
+		}
+
+		return [
+			{
+				...item,
+				index: null,
+			},
+		]
+	}
+
+	return data.flatMap(mapping)
+}
+
+function UpdatePresets(self: ModuleInstance): void {
 	const structure: CompanionPresetSection[] = [
 		{
 			id: 'controls',
@@ -133,10 +192,12 @@ export function UpdatePresets(self: ModuleInstance): void {
 		],
 	}
 
-	for (const option of toggles) {
+	let result = unroll_indexed(toggles)
+	for (const option of result) {
 		const id =
 			`toggle_${option.id}` +
-			(option.isLogical === true ? '_logical' : typeof option.isLogical === 'number' ? '_' + option.isLogical : '')
+			(option.isLogical ? '_logical' : '') +
+			(typeof option.index === 'number' ? '_' + option.index : '')
 		presets[id] = {
 			type: 'simple',
 			name: `Toggle - ${option.label}`,
@@ -153,9 +214,12 @@ export function UpdatePresets(self: ModuleInstance): void {
 							actionId: 'toggle',
 							options: {
 								option:
-									(option.isLogical === true ? 'LOGICAL__' : typeof option.isLogical === 'number' ? 'INDEX__' : '') +
+									(option.isLogical ? LOGICAL_PREFIX : '') +
+									(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 									option.id,
-								logical: 0,
+								logical: LogicalMappingsDropdownValues,
+								index: option.index ?? 0,
+								value: DefaultToggleDropdownOption,
 							},
 						},
 					],
@@ -178,7 +242,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 			(mapping) => mapping.type === 'Toggle' && mapping.name === option.enum,
 		)
 		if (feedbackMapping) {
-			if (option.isLogical === true)
+			if (option.isLogical)
 				presets[id].feedbacks.push({
 					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
 					feedbackId: feedbackMapping.name,
@@ -191,15 +255,15 @@ export function UpdatePresets(self: ModuleInstance): void {
 						bgcolor: 0xff0000,
 					},
 				})
-			else if (typeof option.isLogical === 'number' || feedbackMapping.hasSections !== 'None')
+			else if (typeof option.index === 'number' || feedbackMapping.hasSections !== 'None')
 				presets[id].feedbacks.push({
 					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
 					feedbackId: feedbackMapping.name,
 					options: {
 						value: 1,
-						index: toggles
-							.filter((toggle) => toggle.enum === option.enum)
-							.findIndex((toggle) => toggle.id == option.id),
+						index:
+							option.index ??
+							result.filter((toggle) => toggle.enum === option.enum).findIndex((toggle) => toggle.id == option.id),
 					},
 					style: {
 						color: 0xffffff,
@@ -222,30 +286,19 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'toggles' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'toggles' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
 		}
 	}
 
-	const result = buttons.flatMap((item) => {
-		if (typeof item.isLogical === 'number' && item.isLogical > 0) {
-			return Array.from({ length: item.isLogical }, (_, index) => ({
-				...item,
-				isLogical: index,
-				label: item.label.replace(/ \d+-\d+$/, ' ' + index),
-			}))
-		}
-		return item
-	})
-
+	result = unroll_indexed(buttons)
 	for (const option of result) {
 		const id =
 			`button_${option.id}` +
-			(option.isLogical === true ? '_logical' : typeof option.isLogical === 'number' ? '_' + option.isLogical : '')
+			(option.isLogical ? '_logical' : '') +
+			(typeof option.index === 'number' ? '_' + option.index : '')
 		presets[id] = {
 			type: 'simple',
 			name: `Button - ${option.label}`,
@@ -262,15 +315,11 @@ export function UpdatePresets(self: ModuleInstance): void {
 							actionId: 'press_button',
 							options: {
 								option:
-									(option.isLogical === true ? 'LOGICAL__' : typeof option.isLogical === 'number' ? 'INDEX__' : '') +
+									(option.isLogical ? LOGICAL_PREFIX : '') +
+									(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 									option.id,
-								logical: 0,
-								index:
-									typeof option.isLogical === 'number'
-										? result
-												.filter((btn) => btn.id === option.id)
-												.findIndex((btn) => btn.isLogical === option.isLogical)
-										: 0,
+								logical: LogicalMappingsDropdownValues,
+								index: option.index ?? 0,
 							},
 						},
 					],
@@ -291,19 +340,19 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'buttons' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'buttons' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
 		}
 	}
 
-	for (const option of enums) {
+	result = unroll_indexed(enums)
+	for (const option of result) {
 		const id =
 			`enum_${option.id}` +
-			(option.isLogical === true ? '_logical' : typeof option.isLogical === 'number' ? '_' + option.isLogical : '')
+			(option.isLogical ? '_logical' : '') +
+			(typeof option.index === 'number' ? '_' + option.index : '')
 		presets[id] = {
 			type: 'simple',
 			name: `Enum - ${option.label}`,
@@ -320,9 +369,11 @@ export function UpdatePresets(self: ModuleInstance): void {
 							actionId: 'set_enum',
 							options: {
 								option:
-									(option.isLogical === true ? 'LOGICAL__' : typeof option.isLogical === 'number' ? 'INDEX__' : '') +
+									(option.isLogical ? LOGICAL_PREFIX : '') +
+									(typeof option.index === 'number' ? INDEX_PREFIX : '') +
 									option.id,
-								logical: 0,
+								logical: LogicalMappingsDropdownValues,
+								index: option.index ?? 0,
 							},
 						},
 					],
@@ -343,26 +394,15 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const feedbackMapping = feedbackMappings.find((mapping) => mapping.type === 'Enum' && mapping.name === option.enum)
 		if (feedbackMapping) {
-			if (option.isLogical === true)
+			if (option.isLogical)
 				presets[id].feedbacks.push({
 					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
 					feedbackId: feedbackMapping.name,
 					options: {
-						value: enums.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
+						value:
+							option.index ??
+							result.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
 						logical: 0,
-					},
-					style: {
-						color: 0xffffff,
-						bgcolor: 0xff0000,
-					},
-				})
-			else if (typeof option.isLogical === 'number' || feedbackMapping.hasSections !== 'None')
-				presets[id].feedbacks.push({
-					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
-					feedbackId: feedbackMapping.name,
-					options: {
-						value: enums.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
-						index: enums.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
 					},
 					style: {
 						color: 0xffffff,
@@ -374,7 +414,9 @@ export function UpdatePresets(self: ModuleInstance): void {
 					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
 					feedbackId: feedbackMapping.name,
 					options: {
-						value: enums.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
+						value:
+							option.index ??
+							result.filter((myEnum) => myEnum.enum === option.enum).findIndex((myEnum) => myEnum.id == option.id),
 					},
 					style: {
 						color: 0xffffff,
@@ -385,21 +427,21 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'enums' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'enums' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
 		}
 	}
 
-	for (const option of sliders) {
+	const result_sliders = unroll_indexed(sliders)
+	for (const option of result_sliders) {
 		const id =
 			`slider_${option.id}` +
-			(option.isLogical === true ? '_logical' : typeof option.isLogical === 'number' ? '_' + option.isLogical : '')
+			(option.isLogical ? '_logical' : '') +
+			(typeof option.index === 'number' ? '_' + option.index : '')
 		const indexes = sliders.filter((slider) => slider.enum === option.enum)
-		const index = indexes.findIndex((slider) => slider.id == option.id)
+		const index = option.index ?? indexes.findIndex((slider) => slider.id == option.id)
 		presets[id] = {
 			type: 'alternatives',
 			variants: [
@@ -428,7 +470,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 							max: { isExpression: false, value: 127 },
 							value: {
 								isExpression: true,
-								value: `$(VRChat_NeoLuma_Control:${option.enum}${indexes.length > 1 ? '_' + (index < 10 ? '0' + index : index) : ''})`,
+								value: `$(VRChat_NeoLuma_Control:${option.enum}${indexes.length > 1 || typeof option.index === 'number' ? '_' + (index < 10 ? '0' + index : index) : ''})`,
 							},
 							markerEnabled: { isExpression: false, value: true },
 							stops: [
@@ -457,12 +499,11 @@ export function UpdatePresets(self: ModuleInstance): void {
 									actionId: 'set_slider',
 									options: {
 										option:
-											(option.isLogical === true
-												? 'LOGICAL__'
-												: typeof option.isLogical === 'number'
-													? 'INDEX__'
-													: '') + option.id,
-										logical: 0,
+											(option.isLogical ? LOGICAL_PREFIX : '') +
+											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
+											option.id,
+										logical: LogicalMappingsDropdownValues,
+										index: option.index ?? 0,
 										value: 0,
 									},
 								},
@@ -505,12 +546,11 @@ export function UpdatePresets(self: ModuleInstance): void {
 									actionId: 'set_slider',
 									options: {
 										option:
-											(option.isLogical === true
-												? 'LOGICAL__'
-												: typeof option.isLogical === 'number'
-													? 'INDEX__'
-													: '') + option.id,
-										logical: 0,
+											(option.isLogical ? LOGICAL_PREFIX : '') +
+											(typeof option.index === 'number' ? INDEX_PREFIX : '') +
+											option.id,
+										logical: LogicalMappingsDropdownValues,
+										index: option.index ?? 0,
 										value: 0,
 									},
 								},
@@ -532,11 +572,17 @@ export function UpdatePresets(self: ModuleInstance): void {
 			],
 		}
 
-		const feedbackMapping = feedbackMappings.find(
-			(mapping) => mapping.type === 'Slider' && mapping.name === option.enum,
-		)
+		const feedbackMapping = feedbackMappings.find((mapping) => {
+			if (mapping.type !== 'Slider') return false
+			if (mapping.name !== option.enum) return false
+			if (option.isLogical && mapping.hasSections === 'None') return false
+			// noinspection RedundantIfStatementJS
+			if (!option.isLogical && mapping.hasSections !== 'None') return false
+
+			return true
+		})
 		if (feedbackMapping) {
-			if (option.isLogical === true)
+			if (option.isLogical)
 				presets[id].variants[1].feedbacks.push({
 					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
 					feedbackId: feedbackMapping.name,
@@ -549,14 +595,16 @@ export function UpdatePresets(self: ModuleInstance): void {
 						bgcolor: 0xff0000,
 					},
 				})
-			else if (typeof option.isLogical === 'number' || feedbackMapping.hasSections !== 'None')
+			else if (typeof option.index === 'number' || feedbackMapping.hasSections !== 'None')
 				presets[id].variants[1].feedbacks.push({
 					// @ts-expect-error Type 'string' is not assignable to type '"connected" | "AllowPortals" | "Blackout" | "BlinderIntensity" | "CleanLight" | "DiscoBall" | "Flasher" | "FlasherIntensity" | "FlasherSpeed" | "GlobalIntensity" | "Gobo" | ... 34 more ... | "MidiLog"'.ts(2322)
 					feedbackId: feedbackMapping.name,
 					options: {
-						index: sliders
-							.filter((slider) => slider.enum === option.enum)
-							.findIndex((slider) => slider.id == option.id),
+						index:
+							option.index ??
+							result_sliders
+								.filter((slider) => slider.enum === option.enum)
+								.findIndex((slider) => slider.id == option.id),
 						value: 127,
 					},
 					style: {
@@ -580,9 +628,7 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 		const def = structure[0].definitions.find(
 			(def) =>
-				typeof def !== 'string' &&
-				def.id === 'sliders' + (option.isLogical !== undefined ? '-logical' : '') &&
-				def.type === 'simple',
+				typeof def !== 'string' && def.id === 'sliders' + (option.isLogical ? '-logical' : '') && def.type === 'simple',
 		)
 		if (def && typeof def !== 'string' && def.type === 'simple') {
 			def.presets.push(id)
@@ -591,3 +637,5 @@ export function UpdatePresets(self: ModuleInstance): void {
 
 	self.setPresetDefinitions(structure, presets)
 }
+
+export default UpdatePresets
