@@ -1528,7 +1528,7 @@ export const buttons: MappingData[] = [
 			},
 		],
 	},
-]
+] as const
 
 export default buttons
 

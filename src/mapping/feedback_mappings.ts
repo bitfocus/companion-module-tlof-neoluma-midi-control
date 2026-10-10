@@ -1,4 +1,4 @@
-export type FeedbackMappings = typeof feedbackMappings[number]
+export type FeedbackMappings = (typeof feedbackMappings)[number]
 
 export const feedbackMappings = [
 	{
