@@ -1,3 +1,5 @@
+import type { IsEqual } from 'type-fest'
+
 ///From https://web.archive.org/web/20260120040206/https://dev.to/svehla/typescript-object-fromentries-389c, with manual fixes
 type ArrayElement<A> = A extends readonly (infer T)[] ? T : never
 type DeepWriteable<T> = { -readonly [P in keyof T]: DeepWriteable<T[P]> }
@@ -18,3 +20,9 @@ declare global {
 		entries<const T extends Record<string, unknown>>(obj: T): Entry<T>[]
 	}
 }
+
+// Basic idea from https://stackoverflow.com/questions/77260345/how-to-use-isequal-to-create-a-utility-that-asserts-the-equality-of-type-types/77261320#77261320, but adapted to not output any js code
+export declare const isEqual: <
+	T extends (IsEqual<T, S> extends true ? unknown : never),
+	S extends (IsEqual<T, S> extends true ? unknown : never),
+>() => void
