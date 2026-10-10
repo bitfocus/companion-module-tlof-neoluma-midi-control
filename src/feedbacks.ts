@@ -98,7 +98,8 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				]
 				return ret
 			}
-			if (feedbackMapping.type != 'Enum' && feedbackMapping.hasSections !== 'None') {
+			if (feedbackMapping.hasSections !== 'None') {
+				isEqual<typeof feedbackMapping.type & 'Enum', never>()
 				const ret: readonly [typeof feedbackMapping.name, definition<typeof feedbackMapping.name>] = [
 					feedbackMapping.name,
 					{
