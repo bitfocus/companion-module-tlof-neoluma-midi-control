@@ -20,7 +20,7 @@ import type {
 } from './mapping/mapping_data.js'
 import { DefaultToggleDropdownOption, INDEX_PREFIX, LOGICAL_PREFIX } from './constants.js'
 import { LogicalMappingsDropdownValues, type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
-import { isEqual } from './globals.js'
+import { isEqual } from './typing/isEqual.js'
 
 type unroll_indexed_inner_type<T = number> =
 	| (ChannelMappingData<T> & { index: null })
