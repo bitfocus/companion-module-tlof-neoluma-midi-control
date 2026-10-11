@@ -8,10 +8,8 @@ import type {
 	CompanionFeedbackDefinitions,
 	SomeCompanionFeedbackInputField,
 } from '@companion-module/base'
-import { isEqual } from './globals.js'
 import { maxLogicalIndex } from './mapping/buttons.js'
-
-type ExtractField<T, F extends keyof T> = Pick<T, F>[F]
+import { isEqual } from './typing/isEqual.js'
 
 export type FeedbackOptions<T extends string> =
 	Extract<FeedbackMappings, { name: T }> extends never
@@ -34,7 +32,7 @@ export interface FullFeedback<T extends string> extends CompanionFeedbackSchema<
 }
 
 export type Feedback<T extends { name: string } = FeedbackMappings> = {
-	[P in ExtractField<T, 'name'>]: FullFeedback<P>
+	[P in T['name']]: FullFeedback<P>
 }
 
 type AdditionalFeedback = {
