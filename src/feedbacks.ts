@@ -1,48 +1,14 @@
 import type ModuleInstance from './main.js'
-import { LogicalMappingsDropdownOptions, type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
-
-import { feedbackMappings, type FeedbackMappings } from './mapping/feedback_mappings.js'
 import type {
 	CompanionFeedbackDefinition,
-	CompanionFeedbackSchema,
 	CompanionFeedbackDefinitions,
 	SomeCompanionFeedbackInputField,
 } from '@companion-module/base'
+import type { AdditionalFeedback, Feedback, FeedbacksSchema, FullFeedback } from './typing/feedback.js'
+import feedbackMappings from './mapping/feedback_mappings.js'
+import { LogicalMappingsDropdownOptions } from './mapping/logical_mappings_enum.js'
 import { maxLogicalIndex } from './mapping/buttons.js'
 import { isEqual } from './typing/isEqual.js'
-
-export type FeedbackOptions<T extends string> =
-	Extract<FeedbackMappings, { name: T }> extends never
-		? never
-		: Extract<FeedbackMappings, { sectionType: 'Logical'; name: T }> extends never
-			? Extract<FeedbackMappings, { sectionType: 'None'; name: T } | { type: 'Enum'; name: T }> extends never
-				? { value: number; index: number }
-				: { value: number }
-			: { value: number; logical: LogicalMappingsEnum }
-
-isEqual<FeedbackOptions<'InvalidNameNotUsed'>, never>()
-isEqual<FeedbackOptions<'AllowPortals'>, { value: number }>()
-isEqual<FeedbackOptions<'WallLines'>, { value: number }>()
-isEqual<FeedbackOptions<'SetColor'>, { value: number; index: number }>()
-isEqual<FeedbackOptions<'Gobo'>, { value: number; logical: LogicalMappingsEnum }>()
-
-export interface FullFeedback<T extends string> extends CompanionFeedbackSchema<FeedbackOptions<T>> {
-	type: 'boolean'
-	options: FeedbackOptions<T>
-}
-
-export type Feedback<T extends { name: string } = FeedbackMappings> = {
-	[P in T['name']]: FullFeedback<P>
-}
-
-type AdditionalFeedback = {
-	connected: {
-		type: 'boolean'
-		options: Record<string, never>
-	}
-}
-
-export type FeedbacksSchema = Feedback & AdditionalFeedback
 
 export function UpdateFeedbacks(self: ModuleInstance): void {
 	const definitions: CompanionFeedbackDefinitions<Feedback> = Object.fromEntries(
@@ -155,5 +121,6 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 		...definitions,
 		...additional,
 	}
+
 	self.setFeedbackDefinitions(feedbackDefinitions)
 }
