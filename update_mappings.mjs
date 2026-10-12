@@ -20,7 +20,12 @@ let mapping_buttons =
 	mapping_sliders =
 		"import type { SliderMappingData } from './mapping_data.js'\n\nconst ALL = 'ALL'\n\nexport const sliders: SliderMappingData[] = [\n",
 	mapping_toggles = "import type { MappingData } from './mapping_data.js'\n\nexport const toggles: MappingData[] = [\n",
-	variables = `import type ModuleInstance from './main.js'\n\n`
+	variables = `import type { CompanionVariableDefinitions } from '@companion-module/base'
+import type { VariableSchema } from '../variables.js'
+
+export const defaultValues: VariableSchema = {
+\tconnected: false,
+`
 
 /**
  * @param {string} Type
@@ -253,50 +258,78 @@ function add_mapping(Type, string) {
 	}
 	{
 		console.log('Processing midi feedback...')
-		let variablesNormal = ['', ''],
-			variablesLogical = ['', ''],
-			variablesOther = ['', '']
+		let variablesNormal = '',
+			variablesLogical = '',
+			variablesOther = ''
 		for (const feedback of mappings.feedback) {
 			const { sectionType: HasSections, name: Name } = feedback
 
 			if (HasSections === 'None') {
-				variablesNormal[0] += `\t${Name}: number\n`
-				variablesNormal[1] += `\t\t${Name}: { name: '${Name}' },\n`
-			} else if (HasSections === 'Logical') {
-				variablesLogical[0] += `\t${Name}_00: number\n\t${Name}_01: number\n\t${Name}_02: number\n\t${Name}_03: number\n\t${Name}_04: number\n\t${Name}_05: number\n\t${Name}_06: number\n\t${Name}_07: number\n\t${Name}_08: number\n\t${Name}_09: number\n\t${Name}_10: number\n\t${Name}_11: number\n\t${Name}_12: number\n\t${Name}_13: number\n\t${Name}_14: number\n\t${Name}_15: number\n\t${Name}_16: number\n\t${Name}_17: number\n\t${Name}_18: number\n\t${Name}_19: number\n\t${Name}_20: number\n\t${Name}_21: number\n\t${Name}_22: number\n\t${Name}_23: number\n\t${Name}_24: number\n\t${Name}_25: number\n\t${Name}_26: number\n\t${Name}_27: number\n\t${Name}_28: number\n\t${Name}_29: number\n\t${Name}_30: number\n\t${Name}_31: number\n`
-				variablesLogical[1] += `\t\t${Name}_00: { name: '${Name} Logical 00' },\n\t\t${Name}_01: { name: '${Name} Logical 01' },\n\t\t${Name}_02: { name: '${Name} Logical 02' },\n\t\t${Name}_03: { name: '${Name} Logical 03' },\n\t\t${Name}_04: { name: '${Name} Logical 04' },\n\t\t${Name}_05: { name: '${Name} Logical 05' },\n\t\t${Name}_06: { name: '${Name} Logical 06' },\n\t\t${Name}_07: { name: '${Name} Logical 07' },\n\t\t${Name}_08: { name: '${Name} Logical 08' },\n\t\t${Name}_09: { name: '${Name} Logical 09' },\n\t\t${Name}_10: { name: '${Name} Logical 10' },\n\t\t${Name}_11: { name: '${Name} Logical 11' },\n\t\t${Name}_12: { name: '${Name} Logical 12' },\n\t\t${Name}_13: { name: '${Name} Logical 13' },\n\t\t${Name}_14: { name: '${Name} Logical 14' },\n\t\t${Name}_15: { name: '${Name} Logical 15' },\n\t\t${Name}_16: { name: '${Name} Logical 16' },\n\t\t${Name}_17: { name: '${Name} Logical 17' },\n\t\t${Name}_18: { name: '${Name} Logical 18' },\n\t\t${Name}_19: { name: '${Name} Logical 19' },\n\t\t${Name}_20: { name: '${Name} Logical 20' },\n\t\t${Name}_21: { name: '${Name} Logical 21' },\n\t\t${Name}_22: { name: '${Name} Logical 22' },\n\t\t${Name}_23: { name: '${Name} Logical 23' },\n\t\t${Name}_24: { name: '${Name} Logical 24' },\n\t\t${Name}_25: { name: '${Name} Logical 25' },\n\t\t${Name}_26: { name: '${Name} Logical 26' },\n\t\t${Name}_27: { name: '${Name} Logical 27' },\n\t\t${Name}_28: { name: '${Name} Logical 28' },\n\t\t${Name}_29: { name: '${Name} Logical 29' },\n\t\t${Name}_30: { name: '${Name} Logical 30' },\n\t\t${Name}_31: { name: '${Name} Logical 31' },\n`
-			} else {
-				variablesOther[0] += `\t${Name}_00: number\n\t${Name}_01: number\n\t${Name}_02: number\n\t${Name}_03: number\n\t${Name}_04: number\n\t${Name}_05: number\n\t${Name}_06: number\n\t${Name}_07: number\n\t${Name}_08: number\n\t${Name}_09: number\n\t${Name}_10: number\n\t${Name}_11: number\n\t${Name}_12: number\n\t${Name}_13: number\n\t${Name}_14: number\n\t${Name}_15: number\n\t${Name}_16: number\n`
-				variablesOther[1] += `\t\t${Name}_00: { name: '${Name} Index 00' },\n\t\t${Name}_01: { name: '${Name} Index 01' },\n\t\t${Name}_02: { name: '${Name} Index 02' },\n\t\t${Name}_03: { name: '${Name} Index 03' },\n\t\t${Name}_04: { name: '${Name} Index 04' },\n\t\t${Name}_05: { name: '${Name} Index 05' },\n\t\t${Name}_06: { name: '${Name} Index 06' },\n\t\t${Name}_07: { name: '${Name} Index 07' },\n\t\t${Name}_08: { name: '${Name} Index 08' },\n\t\t${Name}_09: { name: '${Name} Index 09' },\n\t\t${Name}_10: { name: '${Name} Index 10' },\n\t\t${Name}_11: { name: '${Name} Index 11' },\n\t\t${Name}_12: { name: '${Name} Index 12' },\n\t\t${Name}_13: { name: '${Name} Index 13' },\n\t\t${Name}_14: { name: '${Name} Index 14' },\n\t\t${Name}_15: { name: '${Name} Index 15' },\n\t\t${Name}_16: { name: '${Name} Index 16' },\n`
+				variablesNormal += `\t${Name}: { name: '${Name}' },\n`
+				continue
+			}
+
+			if (HasSections === 'Logical') {
+				for (const value of mappings.rangedNames) {
+					const { index: key, section, side } = value
+					if (section === 'RESERVED') continue
+					const number = key >= 0 && key < 10 ? `0${key}` : `${key}`
+					variablesLogical += `\t${Name}_${number}: { name: '${Name} in ${section} - ${side}' },\n`
+					variables += `\t${Name}_${number}: -1,\n`
+				}
+				continue
+			}
+
+			let values = [mappings.indexedMappings, mappings.enumMappings]
+				.flat(1)
+				.filter((value) => value.type.feedback === Name)
+
+			if (values.length > 1) {
+				console.error(
+					`Feedback ${Name} has multiple entries in indexedMappins and enumMappings. Ignoring Feedback. This will probably lead to compilation errors!`,
+				)
+				continue
+			}
+
+			if (values.length === 1) {
+				const mapping = values[0]
+				for (const [key, value] of mapping.values.entries()) {
+					const number = key >= 0 && key < 10 ? `0${key}` : `${key}`
+					const name = value.name ?? `${key}`
+					variablesLogical += `\t${Name}_${number}: { name: '${Name}: ${name}' },\n`
+					variables += `\t${Name}_${number}: -1,\n`
+				}
+				continue
+			}
+
+			values = mappings.mappings.filter((value) => value.type.feedback === Name)
+
+			if (values.length <= 0) {
+				console.error(
+					`Feedback ${Name} is not of type logical and has no entry in indexedMappins, enumMappings or mappings. Ignoring Feedback. This will probably lead to compilation errors!`,
+				)
+				continue
+			}
+
+			for (const [key, value] of values.entries()) {
+				const { section, name } = value
+				const number = key >= 0 && key < 10 ? `0${key}` : `${key}`
+				variablesOther += `\t${Name}_${number}: { name: '${Name}: ${section} - ${name}' },\n`
+				variables += `\t${Name}_${number}: -1,\n`
 			}
 		}
 
-		const variablesString =
-			'\n\t// Feedback Mappings:\n' +
-			variablesNormal[0] +
-			'\n\t// Logical Feedback Mappings:\n' +
-			variablesLogical[0] +
-			'\n\t// Other Mappings:\n' +
-			variablesOther[0]
+		variables += `}
 
-		variables +=
-			'export type VariablesSchema = {\n\tconnected: boolean\n' +
-			variablesString +
-			'}\n\n' +
-			'export const defaultValues = {' +
-			variablesString.replaceAll(': number', ': -1,') +
-			'}\n\n' +
-			`export function UpdateVariableDefinitions(self: ModuleInstance): void {
-	self.setVariableDefinitions({
-		connected: { name: 'Connected to VRChat World' },
-` +
-			'\n\t\t// Feedback Mappings:\n' +
-			variablesNormal[1] +
-			'\n\t\t// Logical Feedback Mappings:\n' +
-			variablesLogical[1] +
-			'\n\t\t// Other Mappings:\n' +
-			variablesOther[1] +
-			'\t})\n\tself.setVariableValues({\n\t\tconnected: false,\n\t\t...defaultValues,\n\t})\n'
+export const variableDefinitions: CompanionVariableDefinitions<VariableSchema> = {
+\tconnected: { name: 'Connected to VRChat World' },
+\t// Feedback Mappings:
+${variablesNormal}
+\t// Logical Feedback Mappings:
+${variablesLogical}
+\t// Other Mappings:
+${variablesOther}}
+`
 	}
 }
 
@@ -312,14 +345,12 @@ mapping_enums += '] as const\n\nexport default enums\n'
 mapping_sliders += '] as const\n\nexport default sliders\n'
 mapping_toggles += '] as const\n\nexport default toggles\n'
 
-variables += '}\n'
-
 await fs.writeFile(path.resolve('./src/mapping/buttons.ts'), mapping_buttons, { encoding: 'utf-8' })
 await fs.writeFile(path.resolve('./src/mapping/enums.ts'), mapping_enums, { encoding: 'utf-8' })
 await fs.writeFile(path.resolve('./src/mapping/sliders.ts'), mapping_sliders, { encoding: 'utf-8' })
 await fs.writeFile(path.resolve('./src/mapping/toggles.ts'), mapping_toggles, { encoding: 'utf-8' })
 
-await fs.writeFile(path.resolve('./src/variables.ts'), variables, { encoding: 'utf-8' })
+await fs.writeFile(path.resolve('./src/mapping/variables.ts'), variables, { encoding: 'utf-8' })
 await fs.writeFile(
 	path.resolve('./src/mapping/mappings.ts'),
 	`/* eslint-disable */ // This file is automatically "generated"/copied by the update_mappings.mjs script. Sadly this cannot be done as a simple json import, because the typing of json imports in ts is simply too weak (matches that of non-'as const' types ?)

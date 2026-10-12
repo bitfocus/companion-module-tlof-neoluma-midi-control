@@ -6,10 +6,9 @@ import {
 	type SomeCompanionConfigField,
 } from '@companion-module/base'
 import { GetConfigFields, type ModuleConfig } from './config.js'
-import { defaultValues, UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
 import { type ActionsSchema, UpdateActions } from './actions.js'
-import { type FeedbacksSchema, UpdateFeedbacks } from './feedbacks.js'
+import { UpdateFeedbacks } from './feedbacks.js'
 import UpdatePresets from './presets.js'
 import { Output } from './midi/midi.js'
 import fs from 'fs'
@@ -26,6 +25,9 @@ import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mapp
 import type { LogicalMapping, MappingData, NumberInfo, SliderMappingData } from './mapping/mapping_data.js'
 import { VRC_EDITOR_PATH, VRC_PATH } from './logPaths.js'
 import { Tail } from 'tail'
+import type { FeedbacksSchema } from './typing/feedback.js'
+import type { VariableSchema } from './typing/variables.js'
+import { defaultValues, variableDefinitions } from './mapping/variables.js'
 
 const tailLogger = createModuleLogger('TailUtil')
 
@@ -34,7 +36,7 @@ export interface ModuleSchema extends InstanceTypes {
 	secrets: undefined
 	actions: ActionsSchema
 	feedbacks: FeedbacksSchema
-	variables: VariablesSchema
+	variables: VariableSchema
 }
 
 export { UpgradeScripts }
@@ -147,7 +149,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	updateVariableDefinitions(): void {
-		UpdateVariableDefinitions(this)
+		this.setVariableDefinitions(variableDefinitions)
+		this.setVariableValues(defaultValues)
 	}
 
 	start(): void {
