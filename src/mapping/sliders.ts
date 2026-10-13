@@ -436,6 +436,6 @@ export const sliders: SliderMappingData[] = [
 			end: 31,
 		},
 	},
-]
+] as const
 
 export default sliders
