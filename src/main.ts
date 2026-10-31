@@ -129,6 +129,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			return
 		}
 
+		this.updatePresets()
+
 		this.start()
 	}
 

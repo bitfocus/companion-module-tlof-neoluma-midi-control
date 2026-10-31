@@ -511,7 +511,7 @@ function UpdatePresets(self: ModuleInstance): void {
 							max: { isExpression: false, value: 127 },
 							value: {
 								isExpression: true,
-								value: `$(VRChat_NeoLuma_Control:${option.enum}${indexes.length > 1 || typeof option.index === 'number' ? '_' + (index < 10 ? '0' + index : index) : ''})`,
+								value: `$(${self.label}:${option.enum}${indexes.length > 1 || typeof option.index === 'number' ? '_' + (index < 10 ? '0' + index : index) : ''})`,
 							},
 							markerEnabled: { isExpression: false, value: true },
 							stops: [
