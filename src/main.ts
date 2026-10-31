@@ -28,6 +28,7 @@ import { Tail } from 'tail'
 import type { FeedbacksSchema } from './typing/feedback.js'
 import type { VariableSchema } from './typing/variables.js'
 import { defaultValues, variableDefinitions } from './mapping/variables.js'
+import * as node_midi from '@julusian/midi'
 
 const tailLogger = createModuleLogger('TailUtil')
 
@@ -55,8 +56,8 @@ const FIND_MAPPING_PREDICATE = (option: string) => (toggle: MappingData<unknown>
 }
 
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
-	config!: ModuleConfig // Setup in init()
-	#midiOutput: Output | null = null
+	#config!: ModuleConfig // Setup in init()
+	#midiOutput: Output = Output.DUMMY
 	#inReset: boolean = false
 	#logTail: Tail | null = null
 	#lastUpdate: number
@@ -72,7 +73,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async init(config: ModuleConfig): Promise<void> {
-		this.config = config
+		this.#config = config
 
 		this.updateActions() // export actions
 		this.updateFeedbacks() // export feedbacks
@@ -89,17 +90,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			closeLogfile: true,
 			ignoreInReset: true,
 		})
-		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
-		this.#watchdogInterval = null
-		this.#midiOutput?.close()
-		this.#midiOutput = null
+		this.#clearWatchdog()
 		this.#readLogTimeout.abort('destroying')
 		this.#readLogTimeout = new AbortController()
+		this.#midiOutput.close()
+		this.#midiOutput = Output.DUMMY
 		this.log('debug', `${this.id} destroyed`)
 	}
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
-		this.config = config
+		this.#config = config
 
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
@@ -110,11 +110,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			ignoreInReset: true,
 		})
 
-		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
-		this.#watchdogInterval = null
+		this.#clearWatchdog()
 
-		this.#midiOutput?.close()
-		this.#midiOutput = new Output(config.outPortName)
+		this.#midiOutput.close()
+		this.#midiOutput = Output.newOutput(config.outPortName)
 
 		const midiOutStatus = this.#midiOutput.isPortOpen()
 		this.log('info', `Selected Out Port "${this.#midiOutput.name}" is ${midiOutStatus ? '' : 'NOT '}Open.`)
@@ -378,8 +377,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			})
 	}
 
+	#clearWatchdog(): void {
+		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
+		this.#watchdogInterval = null
+	}
+
 	#startLogRead(): void {
-		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return
+		if (this.isLogRead()) return
 
 		void timersPromises
 			.setImmediate(undefined, {
@@ -420,26 +424,43 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	//<editor-fold desc="Midi functions">
+	#sendMidiMessage(bytes: node_midi.MidiMessage): void {
+		if (this.#midiOutput.isPortOpen() && this.#midiOutput.sendMessage(bytes)) return
+
+		//Maybe there is just an internal error in the midiOutput. Let's try recreating/reopening the midi output once.
+		const newOutput = Output.newOutput(this.#midiOutput.name)
+		if (newOutput.isPortOpen() && newOutput.sendMessage(bytes)) {
+			this.#midiOutput.close()
+			this.#midiOutput = newOutput
+			return
+		}
+
+		this.#midiOutput = Output.DUMMY
+		this.updateStatus(InstanceStatus.BadConfig, 'Failed to send a Midi Message')
+		this.reset({
+			reason: 'Failed to send midi message',
+			doReconnect: false,
+			updateStatus: false,
+			closeLogfile: true,
+		})
+	}
 	#sendMidiControl(channel: number, number: number, value: number): void {
-		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending CC ch${channel} number${number} value${value}`)
-		this.#midiOutput.sendMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
+		this.#sendMidiMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
 	}
 
 	#sendMidiNoteOn(channel: number, note: number, velocity: number): void {
-		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_ON ch${channel} note${note} vel${velocity}`)
-		this.#midiOutput.sendMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
+		this.#sendMidiMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
 	#sendMidiNoteOff(channel: number, note: number, velocity: number): void {
-		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_OFF ch${channel} note${note} vel${velocity}`)
-		this.#midiOutput.sendMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
+		this.#sendMidiMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
 	#midiPing(): void {
-		if (!this.isLogRead() || !this.#midiOutput?.isPortOpen()) return
+		if (!this.#midiOutput.isPortOpen()) return
 		this.log('debug', 'Sending MidiPing')
 		this.#sendMidiNoteOn(0, 1, 20) // Ping
 	}
@@ -472,7 +493,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#readLogTimeout = new AbortController()
 	}
 	async #readLogs(): Promise<boolean> {
-		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
+		if (this.isLogRead()) return false
 		try {
 			const logPath = await this.#findVRCLog()
 			if (logPath == null) return false
@@ -528,7 +549,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		let logs: string[]
 
 		try {
-			if (this.config.useEditorLog) {
+			if (this.#config.useEditorLog) {
 				logs = [VRC_EDITOR_PATH]
 			} else {
 				logs = await fsPromises.readdir(VRC_PATH).then((v) =>
@@ -567,7 +588,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	#processLogFile(text: string): void {
 		// noinspection RegExpRedundantEscape
-		const messageMatches = this.config.useEditorLog
+		const messageMatches = this.#config.useEditorLog
 			? Array.from(
 					text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
 				)

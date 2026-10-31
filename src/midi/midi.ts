@@ -5,9 +5,25 @@ const logger = createModuleLogger('MidiUtil')
 
 export class Output {
 	private _output: node_midi.Output | null = null
-	public name: string
+	public readonly name: string
+	public error: unknown
 
-	constructor(name: string) {
+	static readonly DUMMY: Output = new Output(null)
+	static newOutput(name: string): Output {
+		return new Output(name)
+	}
+
+	private constructor(name: string | null) {
+		this.error = undefined
+		if (name === null) {
+			this.name = 'DUMMY'
+			this._output = null
+			this.close = () => {}
+			this.isPortOpen = () => false
+			this.sendMessage = () => false
+			return
+		}
+
 		this.name = name
 
 		try {
@@ -32,6 +48,7 @@ export class Output {
 			this._output.closePort()
 			this._output.destroy()
 		} catch (e) {
+			this.error = e
 			logger.error(`Error whilst closing port: ${e}`)
 		}
 		this._output = null
@@ -42,6 +59,7 @@ export class Output {
 		try {
 			return this._output.isPortOpen()
 		} catch (e) {
+			this.error = e
 			logger.error(`Error determining if port is open: ${e}`)
 			return false
 		}
@@ -53,6 +71,7 @@ export class Output {
 			this._output.sendMessage(bytes)
 			return true
 		} catch (e) {
+			this.error = e
 			logger.error(`Error during sending Midi Message: ${e}`)
 			return false
 		}
