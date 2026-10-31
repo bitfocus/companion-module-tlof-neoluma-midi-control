@@ -129,6 +129,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			return
 		}
 
+		this.updatePresets()
+
 		this.start()
 	}
 
@@ -491,7 +493,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 			tailObj.on('line', (line) => {
 				if (typeof line !== 'string') return
-				this.#processLogFile(line)
+				try {
+					this.#processLogFile(line)
+				} catch (e) {
+					this.log('error', `Failed to process log line: ${e}`)
+				}
 			})
 			tailObj.on('error', (error) => {
 				this.log('error', `Error during log-read: ${error}`)
@@ -654,7 +660,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 
 		if (!rawData) {
-			this.log('error', `Unable to parse base64 whilst receiving base64Data=${base64Data}`)
+			this.log('error', `Unable to parse base64 whilst receiving base64Data: ${base64Data}`)
+			return []
+		}
+
+		if (rawData.length < 4) {
+			this.log('warn', `Feedback payload too short: ${base64Data}`)
 			return []
 		}
 
