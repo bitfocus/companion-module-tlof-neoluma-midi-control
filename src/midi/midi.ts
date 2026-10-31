@@ -1,4 +1,4 @@
-import * as node_midi from '@julusian/midi'
+import * as node_midi from '@julusian/midi/lazy'
 import { createModuleLogger } from '@companion-module/base'
 
 const logger = createModuleLogger('MidiUtil')
@@ -27,6 +27,7 @@ export class Output {
 		this.name = name
 
 		try {
+			node_midi.verifyLibraryLoaded()
 			this._output = new node_midi.Output()
 			const outputPortNumberedNames: string[] = getOutputsInternal(this._output)
 			for (let i = 0; i < outputPortNumberedNames.length; i++) {
@@ -79,16 +80,16 @@ export class Output {
 }
 
 export function getOutputs(): string[] {
-	const output = new node_midi.Output()
-	const ret = getOutputsInternal(output)
-
 	try {
+		node_midi.verifyLibraryLoaded()
+		const output = new node_midi.Output()
+		const ret = getOutputsInternal(output)
 		output.destroy()
+		return ret
 	} catch (e) {
-		logger.error(`Error closing temporary Midi Outputs: ${e}`)
+		logger.error(`Error Creating or destroying temporary Midi Output: ${e}`)
+		return []
 	}
-
-	return ret
 }
 
 function getOutputsInternal(output: node_midi.Output): string[] {

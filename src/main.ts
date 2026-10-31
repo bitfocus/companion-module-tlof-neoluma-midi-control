@@ -28,7 +28,7 @@ import { Tail } from 'tail'
 import type { FeedbacksSchema } from './typing/feedback.js'
 import type { VariableSchema } from './typing/variables.js'
 import { defaultValues, variableDefinitions } from './mapping/variables.js'
-import * as node_midi from '@julusian/midi'
+import * as node_midi from '@julusian/midi/lazy'
 
 const tailLogger = createModuleLogger('TailUtil')
 
