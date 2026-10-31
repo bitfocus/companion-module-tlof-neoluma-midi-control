@@ -521,7 +521,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async #findVRCLog(): Promise<string | null> {
-		let logs: string[] = []
+		let logs: string[]
 
 		try {
 			if (this.config.useEditorLog) {
@@ -536,6 +536,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			}
 		} catch (err) {
 			this.log('error', `Error finding logs: ${err}`)
+			this.updateStatus(InstanceStatus.ConnectionFailure, 'Cannot find logs')
+			return null
 		}
 
 		if (logs.length === 0) {
