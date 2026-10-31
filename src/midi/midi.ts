@@ -12,7 +12,7 @@ export class Output {
 
 		try {
 			this._output = new node_midi.Output()
-			const outputPortNumberedNames: string[] = getOutputs(this._output)
+			const outputPortNumberedNames: string[] = getOutputsInternal(this._output)
 			for (let i = 0; i < outputPortNumberedNames.length; i++) {
 				if (name === outputPortNumberedNames[i]) {
 					this._output.openPort(i)
@@ -59,14 +59,20 @@ export class Output {
 	}
 }
 
-export function getOutputs(output?: node_midi.Output): string[] {
-	if (!output) {
-		try {
-			output = new node_midi.Output()
-		} catch {
-			return []
-		}
+export function getOutputs(): string[] {
+	const output = new node_midi.Output()
+	const ret = getOutputsInternal(output)
+
+	try {
+		output.destroy()
+	} catch (e) {
+		logger.error(`Error closing temporary Midi Outputs: ${e}`)
 	}
+
+	return ret
+}
+
+function getOutputsInternal(output: node_midi.Output): string[] {
 	const outputs: string[] = []
 	try {
 		for (let i = 0; i < output.getPortCount(); i++) {
