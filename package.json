@@ -19,7 +19,7 @@
 		"url": "git+https://github.com/bitfocus/companion-module-tlof-neoluma-midi-control.git"
 	},
 	"engines": {
-		"node": "^22.20",
+		"node": "^26",
 		"yarn": "^4"
 	},
 	"dependencies": {
@@ -29,7 +29,7 @@
 	},
 	"devDependencies": {
 		"@companion-module/tools": "^3.1.0",
-		"@types/node": "^22.19.17",
+		"@types/node": "^26",
 		"@types/tail": "^2.2.3",
 		"eslint": "^10.6.0",
 		"husky": "^9.1.7",
