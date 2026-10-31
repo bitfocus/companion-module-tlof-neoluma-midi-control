@@ -56,6 +56,16 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 				]
 				return ret
 			}
+
+			const value: SomeCompanionFeedbackInputField<'value'> = {
+				type: 'number',
+				id: 'value',
+				label: 'Value',
+				default: 1,
+				min: feedbackMapping.data.start,
+				max: feedbackMapping.data.end,
+			}
+
 			if (feedbackMapping.sectionType !== 'None') {
 				//There'd need to be additional handling code for these, but right now those cases don't need to be handled.
 				isEqual<typeof feedbackMapping.type & 'Enum', never>()
@@ -71,15 +81,6 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					>['values']['name'],
 					never
 				>()
-
-				const value: SomeCompanionFeedbackInputField<'value'> = {
-					type: 'number',
-					id: 'value',
-					label: 'Value',
-					default: 1,
-					min: feedbackMapping.data.start,
-					max: feedbackMapping.data.end,
-				}
 
 				const ret: readonly [typeof feedbackMapping.name, definition<typeof feedbackMapping.name>] = [
 					feedbackMapping.name,
@@ -97,15 +98,6 @@ export function UpdateFeedbacks(self: ModuleInstance): void {
 					},
 				]
 				return ret
-			}
-
-			const value: SomeCompanionFeedbackInputField<'value'> = {
-				type: 'number',
-				id: 'value',
-				label: 'Value',
-				default: 1,
-				min: feedbackMapping.data.start,
-				max: feedbackMapping.data.end,
 			}
 
 			const ret: readonly [typeof feedbackMapping.name, definition<typeof feedbackMapping.name>] = [
