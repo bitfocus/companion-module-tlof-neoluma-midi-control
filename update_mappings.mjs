@@ -21,7 +21,7 @@ let mapping_buttons =
 		"import type { SliderMappingData } from './mapping_data.js'\n\nconst ALL = 'ALL'\n\nexport const sliders: SliderMappingData[] = [\n",
 	mapping_toggles = "import type { MappingData } from './mapping_data.js'\n\nexport const toggles: MappingData[] = [\n",
 	variables = `import type { CompanionVariableDefinitions } from '@companion-module/base'
-import type { VariableSchema } from '../variables.js'
+import type { VariableSchema } from '../typing/variables.js'
 
 export const defaultValues: VariableSchema = {
 \tconnected: false,
@@ -273,9 +273,8 @@ function add_mapping(Type, string) {
 				for (const value of mappings.rangedNames) {
 					const { index: key, section, side } = value
 					if (section === 'RESERVED') continue
-					const number = key >= 0 && key < 10 ? `0${key}` : `${key}`
-					variablesLogical += `\t${Name}_${number}: { name: '${Name} in ${section} - ${side}' },\n`
-					variables += `\t${Name}_${number}: -1,\n`
+					variablesLogical += `\t${Name}_${key}: { name: '${Name} in ${section} - ${side}' },\n`
+					variables += `\t${Name}_${key}: -1,\n`
 				}
 				continue
 			}
@@ -294,10 +293,9 @@ function add_mapping(Type, string) {
 			if (values.length === 1) {
 				const mapping = values[0]
 				for (const [key, value] of mapping.values.entries()) {
-					const number = key >= 0 && key < 10 ? `0${key}` : `${key}`
 					const name = value.name ?? `${key}`
-					variablesLogical += `\t${Name}_${number}: { name: '${Name}: ${name}' },\n`
-					variables += `\t${Name}_${number}: -1,\n`
+					variablesLogical += `\t${Name}_${key}: { name: '${Name}: ${name}' },\n`
+					variables += `\t${Name}_${key}: -1,\n`
 				}
 				continue
 			}
@@ -313,9 +311,8 @@ function add_mapping(Type, string) {
 
 			for (const [key, value] of values.entries()) {
 				const { section, name } = value
-				const number = key >= 0 && key < 10 ? `0${key}` : `${key}`
-				variablesOther += `\t${Name}_${number}: { name: '${Name}: ${section} - ${name}' },\n`
-				variables += `\t${Name}_${number}: -1,\n`
+				variablesOther += `\t${Name}_${key}: { name: '${Name}: ${section} - ${name}' },\n`
+				variables += `\t${Name}_${key}: -1,\n`
 			}
 		}
 
