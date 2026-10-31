@@ -93,6 +93,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#watchdogInterval = null
 		this.#midiOutput?.close()
 		this.#midiOutput = null
+		this.#readLogTimeout.abort('destroying')
+		this.#readLogTimeout = new AbortController()
 		this.log('debug', `${this.id} destroyed`)
 	}
 
@@ -330,12 +332,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			ignoreInReset: false,
 		}
 		const parsedOptions = { ...defaultOptions, ...(options ?? {}) }
+		const skipInResetProtection = !parsedOptions.doReconnect && parsedOptions.ignoreInReset
 
 		this.log('debug', `reset called with reason: ${parsedOptions.reason}`)
 
 		//This prevents simple reset loops, such as a reset aborting the logReader, which will also call reset on close
 		if (!parsedOptions.ignoreInReset && this.#inReset) return
-		this.#inReset = true
+		if (!skipInResetProtection) this.#inReset = true
 
 		this.#lastUpdate = Date.now()
 		if (parsedOptions.closeLogfile) this.#stopReadLogs(parsedOptions.reason)
@@ -352,6 +355,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (parsedOptions.updateStatus)
 			this.updateStatus(InstanceStatus.Disconnected, `Connection Lost or Reset - ${parsedOptions.reason}`)
 
+		if (skipInResetProtection) return
 		void timersPromises
 			// 1 second
 			.setTimeout(1e3, undefined, {
