@@ -1,10 +1,15 @@
-import { createModuleLogger, InstanceBase, InstanceStatus, type SomeCompanionConfigField } from '@companion-module/base'
+import {
+	createModuleLogger,
+	InstanceBase,
+	InstanceStatus,
+	type InstanceTypes,
+	type SomeCompanionConfigField,
+} from '@companion-module/base'
 import { GetConfigFields, type ModuleConfig } from './config.js'
-import { defaultValues, UpdateVariableDefinitions, type VariablesSchema } from './variables.js'
 import { UpgradeScripts } from './upgrades.js'
-import { UpdateActions, type ActionsSchema } from './actions.js'
-import { UpdateFeedbacks, type FeedbacksSchema } from './feedbacks.js'
-import { UpdatePresets } from './presets.js'
+import { type ActionsSchema, UpdateActions } from './actions.js'
+import { UpdateFeedbacks } from './feedbacks.js'
+import UpdatePresets from './presets.js'
 import { Output } from './midi/midi.js'
 import fs from 'fs'
 import fsPromises from 'fs/promises'
@@ -15,21 +20,24 @@ import toggles from './mapping/toggles.js'
 import sliders from './mapping/sliders.js'
 import buttons from './mapping/buttons.js'
 import enums from './mapping/enums.js'
-import type LogicalMappingsEnum from './mapping/logical_mappings_enum.js'
+import { type LogicalMappingsEnum } from './mapping/logical_mappings_enum.js'
 import feedbackMappings, { type FeedbackMappings } from './mapping/feedback_mappings.js'
-import type MappingData from './mapping/mapping_data.js'
-import type { SliderMappingData } from './mapping/mapping_data.js'
+import type { LogicalMapping, MappingData, NumberInfo, SliderMappingData } from './mapping/mapping_data.js'
 import { VRC_EDITOR_PATH, VRC_PATH } from './logPaths.js'
 import { Tail } from 'tail'
+import type { FeedbacksSchema } from './typing/feedback.js'
+import type { VariableSchema } from './typing/variables.js'
+import { defaultValues, variableDefinitions } from './mapping/variables.js'
+import * as node_midi from '@julusian/midi/lazy'
 
 const tailLogger = createModuleLogger('TailUtil')
 
-export type ModuleSchema = {
+export interface ModuleSchema extends InstanceTypes {
 	config: ModuleConfig
 	secrets: undefined
 	actions: ActionsSchema
 	feedbacks: FeedbacksSchema
-	variables: VariablesSchema
+	variables: VariableSchema
 }
 
 export { UpgradeScripts }
@@ -41,9 +49,15 @@ type LogFeedbackResult = {
 	data: number
 }
 
+const FIND_MAPPING_PREDICATE = (option: string) => (toggle: MappingData<unknown>) => {
+	if (toggle.isLogical) option = option.replace(/^LOGICAL__/m, '')
+	if (toggle.type === 'indexed') option = option.replace(/^INDEX__/m, '')
+	return toggle.id == option
+}
+
 export default class ModuleInstance extends InstanceBase<ModuleSchema> {
-	config!: ModuleConfig // Setup in init()
-	#midiOutput: Output | null = null
+	#config!: ModuleConfig // Setup in init()
+	#midiOutput: Output = Output.DUMMY
 	#inReset: boolean = false
 	#logTail: Tail | null = null
 	#lastUpdate: number
@@ -59,7 +73,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async init(config: ModuleConfig): Promise<void> {
-		this.config = config
+		this.#config = config
 
 		this.updateActions() // export actions
 		this.updateFeedbacks() // export feedbacks
@@ -76,15 +90,16 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			closeLogfile: true,
 			ignoreInReset: true,
 		})
-		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
-		this.#watchdogInterval = null
-		this.#midiOutput?.close()
-		this.#midiOutput = null
+		this.#clearWatchdog()
+		this.#readLogTimeout.abort('destroying')
+		this.#readLogTimeout = new AbortController()
+		this.#midiOutput.close()
+		this.#midiOutput = Output.DUMMY
 		this.log('debug', `${this.id} destroyed`)
 	}
 
 	async configUpdated(config: ModuleConfig): Promise<void> {
-		this.config = config
+		this.#config = config
 
 		this.log('debug', `Selected MIDI Output: ${config.outPortName}`)
 
@@ -95,11 +110,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			ignoreInReset: true,
 		})
 
-		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
-		this.#watchdogInterval = null
+		this.#clearWatchdog()
 
-		this.#midiOutput?.close()
-		this.#midiOutput = new Output(config.outPortName)
+		this.#midiOutput.close()
+		this.#midiOutput = Output.newOutput(config.outPortName)
 
 		const midiOutStatus = this.#midiOutput.isPortOpen()
 		this.log('info', `Selected Out Port "${this.#midiOutput.name}" is ${midiOutStatus ? '' : 'NOT '}Open.`)
@@ -115,6 +129,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			})
 			return
 		}
+
+		this.updatePresets()
 
 		this.start()
 	}
@@ -136,7 +152,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	updateVariableDefinitions(): void {
-		UpdateVariableDefinitions(this)
+		this.setVariableDefinitions(variableDefinitions)
+		this.setVariableValues(defaultValues)
 	}
 
 	start(): void {
@@ -176,75 +193,126 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	//<editor-fold desc="Action Callbacks">
-	ToggleOption(option: string, logical: LogicalMappingsEnum | undefined): void {
-		const toggle = toggles.find(
-			(toggle) =>
-				toggle.id === option ||
-				(toggle.isLogical === true
-					? toggle.id === option.replace('LOGICAL__', '')
-					: toggle.isLogical && toggle.id === option.replace('INDEX__', '')),
-		)
-		if (toggle) {
-			let velocity = toggle.velocity
-			if (toggle.isLogical === true && logical !== undefined) velocity += logical
-			this.#sendMidiControl(toggle.channel, toggle.number, velocity)
-		} else {
+	#FindValue<T>(
+		data: MappingData<T>[],
+		option: string,
+		logical: LogicalMappingsEnum[],
+		index: number,
+		add: (value: T, logical: number) => T | undefined,
+	): NumberInfo<T>[] | undefined {
+		const toggle = data.find(FIND_MAPPING_PREDICATE(option))
+		if (typeof toggle === 'undefined') {
 			this.log('error', `Could not find toggle with id=${option}`)
+			return
+		}
+
+		let mapping
+		if (toggle.type === 'indexed') {
+			if (index >= toggle.values.length) {
+				this.log(
+					'error',
+					`Action with id=${option} required an index in the bounds of [0..${toggle.values.length}], but was given ${index}`,
+				)
+				return undefined
+			}
+			mapping = toggle.values[index]
+		} else {
+			mapping = toggle
+		}
+
+		if (mapping.type === 'single') {
+			return [mapping]
+		}
+
+		const MAPPING_RESOLVE = (mapping: LogicalMapping<T>, toAdd: number) => {
+			const length = mapping.range.end - mapping.range.start + 1
+			if (toAdd >= length) {
+				this.log(
+					'error',
+					`Action with id=${option} required an index in the bounds of [0..${length}], but was given ${toAdd}`,
+				)
+				return undefined
+			}
+
+			switch (mapping.range.variable) {
+				case 'number':
+					mapping = { ...mapping, number: mapping.number + toAdd }
+					break
+				case 'velocity': {
+					const velocity = add(mapping.velocity, toAdd)
+					if (typeof velocity === 'undefined') {
+						this.log('warn', `Failed to add ${velocity} and ${logical}`)
+						break
+					}
+
+					mapping = { ...mapping, velocity }
+				}
+			}
+
+			return mapping
+		}
+
+		if (!toggle.isLogical) {
+			const resolved = MAPPING_RESOLVE(mapping, index)
+			if (typeof resolved === 'undefined') {
+				this.log('warn', `Unable to locate Midi Info for option '${option}' with index '${index}'`)
+				return undefined
+			}
+			return [resolved]
+		}
+
+		const mappings = []
+		for (const instance of logical) {
+			const resolved = MAPPING_RESOLVE(mapping, instance)
+			if (typeof resolved === 'undefined') {
+				this.log('warn', `Unable to locate Midi Info for option '${option}' with logical '${instance}'`)
+				continue
+			}
+			mappings.push(resolved)
+		}
+		return mappings
+	}
+	ToggleOption(option: string, logical: LogicalMappingsEnum[], index: number, value: number): void {
+		const notes = this.#FindValue(toggles, option, logical, index, (value, logical) => value + logical)
+		if (typeof notes === 'undefined') {
+			this.log('error', `Could not find toggle with id=${option}`)
+			return
+		}
+		for (const note of notes) {
+			if (value === 0) this.#sendMidiNoteOff(note.channel, note.number, note.velocity)
+			else if (value === 1) this.#sendMidiNoteOn(note.channel, note.number, note.velocity)
+			else this.#sendMidiControl(note.channel, note.number, note.velocity)
 		}
 	}
 
-	PressButton(option: string, logical: LogicalMappingsEnum | undefined, index: number | undefined): void {
-		const button = buttons.find(
-			(button) =>
-				button.id === option ||
-				(button.isLogical === true
-					? button.id === option.replace('LOGICAL__', '')
-					: button.isLogical && button.id === option.replace('INDEX__', '')),
-		)
-		if (button) {
-			let velocity = button.velocity
-			if (button.isLogical === true && logical !== undefined) velocity += logical
-			else if (typeof button.isLogical === 'number' && index !== undefined) velocity += index
-			this.#sendMidiControl(button.channel, button.number, velocity)
-		} else {
+	PressButton(option: string, logical: LogicalMappingsEnum[], index: number): void {
+		const values = this.#FindValue(buttons, option, logical, index, (value, logical) => value + logical)
+		if (typeof values === 'undefined') {
 			this.log('error', `Could not find button with id=${option}`)
+			return
 		}
+		for (const value of values) this.#sendMidiControl(value.channel, value.number, value.velocity)
 	}
 
-	SetEnum(option: string, logical: LogicalMappingsEnum | undefined): void {
-		const myEnum = enums.find(
-			(myEnum) =>
-				myEnum.id === option ||
-				(myEnum.isLogical === true
-					? myEnum.id === option.replace('LOGICAL__', '')
-					: myEnum.isLogical && myEnum.id === option.replace('INDEX__', '')),
-		)
-		if (myEnum) {
-			let velocity = myEnum.velocity
-			if (myEnum.isLogical === true && logical !== undefined) velocity += logical
-			this.#sendMidiControl(myEnum.channel, myEnum.number, velocity)
-		} else {
+	SetEnum(option: string, logical: LogicalMappingsEnum[], index: number): void {
+		const values = this.#FindValue(enums, option, logical, index, (value, logical) => value + logical)
+		if (typeof values === 'undefined') {
 			this.log('error', `Could not find enum with id=${option}`)
+			return
 		}
+		for (const value of values) this.#sendMidiControl(value.channel, value.number, value.velocity)
 	}
 
-	SetSlider(option: string, logical: LogicalMappingsEnum | undefined, value: number): void {
+	SetSlider(option: string, logical: LogicalMappingsEnum[], index: number, value: number): void {
 		if (value < 0 || value > 127) return
 
-		const slider = sliders.find(
-			(slider) =>
-				slider.id === option ||
-				(slider.isLogical === true
-					? slider.id === option.replace('LOGICAL__', '')
-					: slider.isLogical && slider.id === option.replace('INDEX__', '')),
-		)
-		if (slider) {
-			let number = slider.number
-			if (slider.isLogical === true && logical !== undefined) number += logical
-			this.#sendMidiControl(slider.channel, number, value)
-		} else {
+		const slider_mappings = this.#FindValue(sliders, option, logical, index, () => undefined)
+		if (typeof slider_mappings === 'undefined') {
 			this.log('error', `Could not find slider with id=${option}`)
+			return
 		}
+
+		for (const slider of slider_mappings) this.#sendMidiControl(slider.channel, slider.number, value)
 	}
 	//</editor-fold>
 
@@ -263,12 +331,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			ignoreInReset: false,
 		}
 		const parsedOptions = { ...defaultOptions, ...(options ?? {}) }
+		const skipInResetProtection = !parsedOptions.doReconnect && parsedOptions.ignoreInReset
 
 		this.log('debug', `reset called with reason: ${parsedOptions.reason}`)
 
 		//This prevents simple reset loops, such as a reset aborting the logReader, which will also call reset on close
 		if (!parsedOptions.ignoreInReset && this.#inReset) return
-		this.#inReset = true
+		if (!skipInResetProtection) this.#inReset = true
 
 		this.#lastUpdate = Date.now()
 		if (parsedOptions.closeLogfile) this.#stopReadLogs(parsedOptions.reason)
@@ -285,6 +354,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		if (parsedOptions.updateStatus)
 			this.updateStatus(InstanceStatus.Disconnected, `Connection Lost or Reset - ${parsedOptions.reason}`)
 
+		if (skipInResetProtection) return
 		void timersPromises
 			// 1 second
 			.setTimeout(1e3, undefined, {
@@ -307,8 +377,13 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			})
 	}
 
+	#clearWatchdog(): void {
+		if (this.#watchdogInterval !== null) clearInterval(this.#watchdogInterval)
+		this.#watchdogInterval = null
+	}
+
 	#startLogRead(): void {
-		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return
+		if (this.isLogRead()) return
 
 		void timersPromises
 			.setImmediate(undefined, {
@@ -349,26 +424,43 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	//<editor-fold desc="Midi functions">
+	#sendMidiMessage(bytes: node_midi.MidiMessage): void {
+		if (this.#midiOutput.isPortOpen() && this.#midiOutput.sendMessage(bytes)) return
+
+		//Maybe there is just an internal error in the midiOutput. Let's try recreating/reopening the midi output once.
+		const newOutput = Output.newOutput(this.#midiOutput.name)
+		if (newOutput.isPortOpen() && newOutput.sendMessage(bytes)) {
+			this.#midiOutput.close()
+			this.#midiOutput = newOutput
+			return
+		}
+
+		this.#midiOutput = Output.DUMMY
+		this.updateStatus(InstanceStatus.BadConfig, 'Failed to send a Midi Message')
+		this.reset({
+			reason: 'Failed to send midi message',
+			doReconnect: false,
+			updateStatus: false,
+			closeLogfile: true,
+		})
+	}
 	#sendMidiControl(channel: number, number: number, value: number): void {
-		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending CC ch${channel} number${number} value${value}`)
-		this.#midiOutput.sendMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
+		this.#sendMidiMessage([0xb0 | (channel & 0xf), number, value & 0x7f])
 	}
 
 	#sendMidiNoteOn(channel: number, note: number, velocity: number): void {
-		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_ON ch${channel} note${note} vel${velocity}`)
-		this.#midiOutput.sendMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
+		this.#sendMidiMessage([0x90 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
 	#sendMidiNoteOff(channel: number, note: number, velocity: number): void {
-		if (!this.#midiOutput?.isPortOpen()) return
 		// this.log('debug', `Sending NOTE_OFF ch${channel} note${note} vel${velocity}`)
-		this.#midiOutput.sendMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
+		this.#sendMidiMessage([0x80 | (channel & 0xf), note, velocity & 0x7f])
 	}
 
 	#midiPing(): void {
-		if (!this.isLogRead() || !this.#midiOutput?.isPortOpen()) return
+		if (!this.#midiOutput.isPortOpen()) return
 		this.log('debug', 'Sending MidiPing')
 		this.#sendMidiNoteOn(0, 1, 20) // Ping
 	}
@@ -401,7 +493,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		this.#readLogTimeout = new AbortController()
 	}
 	async #readLogs(): Promise<boolean> {
-		if (this.isLogRead() || !this.#midiOutput?.isPortOpen()) return false
+		if (this.isLogRead()) return false
 		try {
 			const logPath = await this.#findVRCLog()
 			if (logPath == null) return false
@@ -426,7 +518,11 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 			tailObj.on('line', (line) => {
 				if (typeof line !== 'string') return
-				this.#processLogFile(line)
+				try {
+					this.#processLogFile(line)
+				} catch (e) {
+					this.log('error', `Failed to process log line: ${e}`)
+				}
 			})
 			tailObj.on('error', (error) => {
 				this.log('error', `Error during log-read: ${error}`)
@@ -450,10 +546,10 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 	}
 
 	async #findVRCLog(): Promise<string | null> {
-		let logs: string[] = []
+		let logs: string[]
 
 		try {
-			if (this.config.useEditorLog) {
+			if (this.#config.useEditorLog) {
 				logs = [VRC_EDITOR_PATH]
 			} else {
 				logs = await fsPromises.readdir(VRC_PATH).then((v) =>
@@ -465,6 +561,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 			}
 		} catch (err) {
 			this.log('error', `Error finding logs: ${err}`)
+			this.updateStatus(InstanceStatus.ConnectionFailure, 'Cannot find logs')
+			return null
 		}
 
 		if (logs.length === 0) {
@@ -490,7 +588,7 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 
 	#processLogFile(text: string): void {
 		// noinspection RegExpRedundantEscape
-		const messageMatches = this.config.useEditorLog
+		const messageMatches = this.#config.useEditorLog
 			? Array.from(
 					text.matchAll(/\s*\[Neoluma\]\[Midi\]( Ready| Not Ready| Pong|\[Feedback\] ([-A-Za-z0-9+/]*={0,3}))/gm),
 				)
@@ -532,6 +630,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					if (
 						returnedValue.mapping.name === 'MidiFeedback' &&
 						returnedValue.data === 0 &&
+						!returnedValue.control.isLogical &&
+						returnedValue.control.type === 'single' &&
 						returnedValue.control.velocity !== 'ALL'
 					) {
 						this.#sendMidiNoteOn(
@@ -542,6 +642,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 					} else if (
 						returnedValue.mapping.name === 'MidiLog' &&
 						returnedValue.data === 1 &&
+						!returnedValue.control.isLogical &&
+						returnedValue.control.type === 'single' &&
 						returnedValue.control.velocity !== 'ALL'
 					) {
 						// this._SendMidiNoteOff(
@@ -585,7 +687,12 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 		}
 
 		if (!rawData) {
-			this.log('error', `Unable to parse base64 whilst receiving base64Data=${base64Data}`)
+			this.log('error', `Unable to parse base64 whilst receiving base64Data: ${base64Data}`)
+			return []
+		}
+
+		if (rawData.length < 4) {
+			this.log('warn', `Feedback payload too short: ${base64Data}`)
 			return []
 		}
 
@@ -604,8 +711,15 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 				byteOffset += 4
 
 				const mapping = feedbackMappings.find((mapping) => mapping.number === mappedNumber)
-				if (mapping) {
-					if (mapping.type === 'Toggle') {
+				if (typeof mapping === 'undefined') {
+					this.log(
+						'warn',
+						`Could not find any matching mapping whilst receiving mappedNumber=${mappedNumber}, extraDataOrSection=${extraDataOrSection}, data=${data}`,
+					)
+					continue
+				}
+				switch (mapping.type) {
+					case 'Toggle': {
 						const control = toggles.find(
 							(toggle) => toggle?.enum === mapping.name || toggle.id.endsWith('__' + mapping.name),
 						)
@@ -618,7 +732,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 								`Could not find ${mapping.name} as an toggle.enum whilst receiving mappedNumber=${mappedNumber}, extraDataOrSection=${extraDataOrSection}, data=${data}`,
 							)
 						}
-					} else if (mapping.type === 'Enum') {
+						break
+					}
+					case 'Enum': {
 						const control = enums.find(
 							(myEnum) => myEnum?.enum === mapping.name || myEnum.id.endsWith('__' + mapping.name),
 						)
@@ -630,7 +746,9 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 								`Could not find ${mapping.name} as an enum.enum whilst receiving mappedNumber=${mappedNumber}, extraDataOrSection=${extraDataOrSection}, data=${data}`,
 							)
 						}
-					} else if (mapping.type === 'Slider') {
+						break
+					}
+					case 'Slider': {
 						const control = sliders.find(
 							(slider) => slider?.enum === mapping.name || slider.id.endsWith('__' + mapping.name),
 						)
@@ -642,12 +760,8 @@ export default class ModuleInstance extends InstanceBase<ModuleSchema> {
 								`Could not find ${mapping.name} as an slider.enum whilst receiving mappedNumber=${mappedNumber}, extraDataOrSection=${extraDataOrSection}, data=${data}`,
 							)
 						}
+						break
 					}
-				} else {
-					this.log(
-						'warn',
-						`Could not find any matching mapping whilst receiving mappedNumber=${mappedNumber}, extraDataOrSection=${extraDataOrSection}, data=${data}`,
-					)
 				}
 			}
 		} else {
